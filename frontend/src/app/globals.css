@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sidebar-width: 240px;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+}
+
+/* Scrollbar fin */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply bg-gray-300 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-gray-400; }
+
+/* Badges de statut */
+.badge-prospect  { @apply bg-yellow-100 text-yellow-800 border border-yellow-200; }
+.badge-active    { @apply bg-green-100 text-green-800 border border-green-200; }
+.badge-inactive  { @apply bg-gray-100 text-gray-600 border border-gray-200; }
+.badge-en_cours  { @apply bg-blue-100 text-blue-800 border border-blue-200; }
+.badge-termine   { @apply bg-green-100 text-green-800 border border-green-200; }
+.badge-suspendu  { @apply bg-orange-100 text-orange-800 border border-orange-200; }
+.badge-annule    { @apply bg-red-100 text-red-800 border border-red-200; }
+.badge-brouillon { @apply bg-gray-100 text-gray-600 border border-gray-200; }
+.badge-envoyee   { @apply bg-blue-100 text-blue-800 border border-blue-200; }
+.badge-payee     { @apply bg-green-100 text-green-800 border border-green-200; }

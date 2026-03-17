@@ -1,0 +1,36 @@
+# Environnement & secrets
+.env
+.env.local
+.env.*.local
+
+# Backend Python
+backend/venv/
+backend/__pycache__/
+backend/*.db
+backend/*.pyc
+**/__pycache__/
+*.pyc
+
+# Frontend Node.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker volumes
+docker-data/
+
+# Database files (root level)
+*.db
+*.db-shm
+*.db-wal
