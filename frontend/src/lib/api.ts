@@ -121,6 +121,31 @@ export const updateTaskStatus = (id: number, status: string) =>
 export const deleteTask = (id: number) =>
   request<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' })
 
+// ─── DIAGNOSTICS ────────────────────────────────────────────
+
+export const getDiagnostics = (params?: { client_id?: number; type?: string; status?: string }) =>
+  request<DiagnosticItem[]>(`/diagnostics${buildQuery(params)}`)
+
+export const getDiagnostic = (id: number) => request<DiagnosticItem>(`/diagnostics/${id}`)
+
+export const createDiagnostic = (data: DiagnosticCreate) =>
+  request<DiagnosticItem>('/diagnostics', { method: 'POST', body: JSON.stringify(data) })
+
+export const updateDiagnostic = (id: number, data: DiagnosticUpdateData) =>
+  request<DiagnosticItem>(`/diagnostics/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+
+export const deleteDiagnostic = (id: number) =>
+  request<{ message: string }>(`/diagnostics/${id}`, { method: 'DELETE' })
+
+export const getSharedDiagnostic = (token: string) =>
+  request<DiagnosticItem>(`/diagnostics/share/${token}`)
+
+export const getDiagnosticPdfUrl = (id: number) =>
+  `${BASE}/diagnostics/${id}/pdf`
+
+export const regenerateShareToken = (id: number) =>
+  request<{ id: number; share_token: string }>(`/diagnostics/${id}/regenerate-token`, { method: 'POST' })
+
 // ─── FICHIERS ────────────────────────────────────────────────
 
 export const browseRoot = () => request<FileItem[]>('/files')
@@ -321,6 +346,49 @@ export interface TaskCreate {
   type?: string
   priority?: string
   due_date?: string
+}
+
+export interface DiagnosticItem {
+  id: number
+  client_id: number
+  client_name?: string
+  type: 'cyber' | 'ia'
+  title: string
+  status: 'en_cours' | 'termine'
+  share_token: string
+  company_info?: Record<string, any>
+  answers?: Record<string, any>
+  results?: DiagnosticResults
+  report_path?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DiagnosticResults {
+  global_score: number
+  sections: DiagnosticSectionResult[]
+}
+
+export interface DiagnosticSectionResult {
+  id: string
+  title: string
+  score_pct: number
+  preconisations: string[]
+}
+
+export interface DiagnosticCreate {
+  client_id: number
+  type: 'cyber' | 'ia'
+  title: string
+  company_info?: Record<string, any>
+}
+
+export interface DiagnosticUpdateData {
+  title?: string
+  status?: string
+  company_info?: Record<string, any>
+  answers?: Record<string, any>
+  results?: Record<string, any>
 }
 
 export interface FileItem {

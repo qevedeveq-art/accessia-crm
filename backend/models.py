@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
+import uuid
 from database import Base
 
 
@@ -36,6 +37,7 @@ class Client(Base):
     invoices = relationship("Invoice", back_populates="client", cascade="all, delete-orphan")
     activities = relationship("Activity", back_populates="client", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="client", cascade="all, delete-orphan")
+    diagnostics = relationship("Diagnostic", back_populates="client", cascade="all, delete-orphan")
 
 
 class Project(Base):
@@ -132,3 +134,21 @@ class Task(Base):
 
     client = relationship("Client", back_populates="tasks")
     project = relationship("Project")
+
+
+class Diagnostic(Base):
+    __tablename__ = "diagnostics"
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    type = Column(String(30), nullable=False, index=True)  # cyber, ia
+    title = Column(String(300), nullable=False)
+    status = Column(String(20), default="en_cours", index=True)  # en_cours, termine
+    share_token = Column(String(64), unique=True, nullable=False, index=True, default=lambda: uuid.uuid4().hex)
+    company_info = Column(Text, nullable=True)  # JSON: nom, secteur, effectif, etc.
+    answers = Column(Text, nullable=True)  # JSON: réponses au questionnaire
+    results = Column(Text, nullable=True)  # JSON: scores, préconisations calculées
+    report_path = Column(String(500), nullable=True)  # chemin vers le PDF sauvegardé
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    client = relationship("Client", back_populates="diagnostics")

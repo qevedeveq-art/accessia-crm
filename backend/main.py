@@ -3,12 +3,15 @@ SENSIA Manager — API Backend
 FastAPI + SQLAlchemy + SQLite
 """
 import os
+import json
+import uuid
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 # TrustedHostMiddleware retiré — bloquait les requêtes Docker
 from sqlalchemy.orm import Session, joinedload
@@ -17,7 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 from slugify import slugify
 
 from database import engine, get_db, Base
-from models import Client, Project, Contact, Invoice, Activity, Task
+from models import Client, Project, Contact, Invoice, Activity, Task, Diagnostic
 import file_service
 
 log = logging.getLogger(__name__)
@@ -51,6 +54,23 @@ def _run_migrations():
         if "pipeline_stage" not in columns:
             cursor.execute("ALTER TABLE clients ADD COLUMN pipeline_stage VARCHAR(30) DEFAULT 'nouveau'")
             log.info("Migration: ajout colonne pipeline_stage à clients")
+        # Créer la table diagnostics si elle n'existe pas
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS diagnostics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                type VARCHAR(30) NOT NULL,
+                title VARCHAR(300) NOT NULL,
+                status VARCHAR(20) DEFAULT 'en_cours',
+                share_token VARCHAR(64) UNIQUE NOT NULL,
+                company_info TEXT,
+                answers TEXT,
+                results TEXT,
+                report_path VARCHAR(500),
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """)
         # Supprimer les colonnes Twenty obsolètes n'est pas possible en SQLite (pas de DROP COLUMN avant 3.35)
         conn.commit()
         conn.close()
@@ -900,6 +920,266 @@ def update_pipeline_stage(client_id: int, data: PipelineUpdate, db = Depends(get
     client.updated_at = _now()
     db.commit()
     return {"id": client.id, "pipeline_stage": client.pipeline_stage}
+
+
+# ═══════════════════════════════════════════════════════════════
+# DIAGNOSTICS
+# ═══════════════════════════════════════════════════════════════
+
+
+class DiagnosticType(str, Enum):
+    cyber = "cyber"
+    ia = "ia"
+
+
+class DiagnosticStatus(str, Enum):
+    en_cours = "en_cours"
+    termine = "termine"
+
+
+class DiagnosticCreate(BaseModel):
+    client_id: int = Field(..., gt=0)
+    type: DiagnosticType
+    title: str = Field(..., min_length=1, max_length=300)
+    company_info: Optional[dict] = None
+
+
+class DiagnosticUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=300)
+    status: Optional[DiagnosticStatus] = None
+    company_info: Optional[dict] = None
+    answers: Optional[dict] = None
+    results: Optional[dict] = None
+
+
+def _serialize_diagnostic(d: Diagnostic) -> dict:
+    return {
+        "id": d.id,
+        "client_id": d.client_id,
+        "client_name": d.client.name if d.client else None,
+        "type": d.type,
+        "title": d.title,
+        "status": d.status,
+        "share_token": d.share_token,
+        "company_info": json.loads(d.company_info) if d.company_info else None,
+        "answers": json.loads(d.answers) if d.answers else None,
+        "results": json.loads(d.results) if d.results else None,
+        "report_path": d.report_path,
+        "created_at": d.created_at.isoformat() if d.created_at else None,
+        "updated_at": d.updated_at.isoformat() if d.updated_at else None,
+    }
+
+
+@app.get("/api/diagnostics")
+def list_diagnostics(
+    client_id: Optional[int] = Query(None, gt=0),
+    type: Optional[DiagnosticType] = None,
+    status: Optional[DiagnosticStatus] = None,
+    db: Session = Depends(get_db),
+):
+    q = db.query(Diagnostic).options(joinedload(Diagnostic.client))
+    if client_id:
+        q = q.filter(Diagnostic.client_id == client_id)
+    if type:
+        q = q.filter(Diagnostic.type == type.value)
+    if status:
+        q = q.filter(Diagnostic.status == status.value)
+    return [_serialize_diagnostic(d) for d in q.order_by(Diagnostic.created_at.desc()).all()]
+
+
+@app.get("/api/diagnostics/{diag_id}")
+def get_diagnostic(diag_id: int, db: Session = Depends(get_db)):
+    d = db.query(Diagnostic).options(joinedload(Diagnostic.client)).filter(Diagnostic.id == diag_id).first()
+    if not d:
+        raise HTTPException(404, "Diagnostic non trouvé")
+    return _serialize_diagnostic(d)
+
+
+@app.post("/api/diagnostics", status_code=201)
+def create_diagnostic(data: DiagnosticCreate, db: Session = Depends(get_db)):
+    client = db.query(Client).filter(Client.id == data.client_id).first()
+    if not client:
+        raise HTTPException(404, "Client non trouvé")
+    diag = Diagnostic(
+        client_id=data.client_id,
+        type=data.type.value,
+        title=data.title.strip(),
+        status="en_cours",
+        share_token=uuid.uuid4().hex,
+        company_info=json.dumps(data.company_info, ensure_ascii=False) if data.company_info else None,
+    )
+    db.add(diag)
+    db.commit()
+    db.refresh(diag)
+    # Charger la relation client pour la sérialisation
+    diag = db.query(Diagnostic).options(joinedload(Diagnostic.client)).filter(Diagnostic.id == diag.id).first()
+    return _serialize_diagnostic(diag)
+
+
+@app.put("/api/diagnostics/{diag_id}")
+def update_diagnostic(diag_id: int, data: DiagnosticUpdate, db: Session = Depends(get_db)):
+    diag = db.query(Diagnostic).options(joinedload(Diagnostic.client)).filter(Diagnostic.id == diag_id).first()
+    if not diag:
+        raise HTTPException(404, "Diagnostic non trouvé")
+    if data.title is not None:
+        diag.title = data.title.strip()
+    if data.status is not None:
+        diag.status = data.status.value
+    if data.company_info is not None:
+        diag.company_info = json.dumps(data.company_info, ensure_ascii=False)
+    if data.answers is not None:
+        diag.answers = json.dumps(data.answers, ensure_ascii=False)
+    if data.results is not None:
+        diag.results = json.dumps(data.results, ensure_ascii=False)
+        diag.status = "termine"
+        # Sauvegarder le rapport dans le dossier client
+        try:
+            client = diag.client
+            if client and client.folder_path:
+                import pathlib
+                report_dir = pathlib.Path(client.folder_path) / "Diagnostics"
+                report_dir.mkdir(parents=True, exist_ok=True)
+                report_file = report_dir / f"diagnostic_{diag.type}_{diag.id}.json"
+                report_file.write_text(json.dumps({
+                    "type": diag.type,
+                    "title": diag.title,
+                    "company_info": data.company_info if data.company_info else json.loads(diag.company_info) if diag.company_info else None,
+                    "results": data.results,
+                    "date": _now().isoformat(),
+                }, ensure_ascii=False, indent=2), encoding="utf-8")
+                diag.report_path = str(report_file)
+                log.info(f"Rapport diagnostic sauvegardé : {report_file}")
+        except Exception as e:
+            log.warning(f"Impossible de sauvegarder le rapport diagnostic : {e}")
+    diag.updated_at = _now()
+    db.commit()
+    db.refresh(diag)
+    diag = db.query(Diagnostic).options(joinedload(Diagnostic.client)).filter(Diagnostic.id == diag.id).first()
+    return _serialize_diagnostic(diag)
+
+
+@app.delete("/api/diagnostics/{diag_id}")
+def delete_diagnostic(diag_id: int, db: Session = Depends(get_db)):
+    d = db.query(Diagnostic).filter(Diagnostic.id == diag_id).first()
+    if not d:
+        raise HTTPException(404, "Diagnostic non trouvé")
+    db.delete(d)
+    db.commit()
+    return {"message": "Diagnostic supprimé"}
+
+
+@app.get("/api/diagnostics/share/{token}")
+def get_shared_diagnostic(token: str, db: Session = Depends(get_db)):
+    """Accès public à un diagnostic via son token de partage."""
+    d = db.query(Diagnostic).options(joinedload(Diagnostic.client)).filter(Diagnostic.share_token == token).first()
+    if not d:
+        raise HTTPException(404, "Diagnostic non trouvé ou lien invalide")
+    if d.status != "termine":
+        raise HTTPException(403, "Ce diagnostic n'est pas encore finalisé")
+    return _serialize_diagnostic(d)
+
+
+@app.get("/api/diagnostics/{diag_id}/pdf")
+def generate_diagnostic_pdf(diag_id: int, db: Session = Depends(get_db)):
+    """Génère un PDF du diagnostic à partir des résultats."""
+    d = db.query(Diagnostic).options(joinedload(Diagnostic.client)).filter(Diagnostic.id == diag_id).first()
+    if not d:
+        raise HTTPException(404, "Diagnostic non trouvé")
+    if not d.results:
+        raise HTTPException(400, "Aucun résultat disponible pour ce diagnostic")
+
+    results = json.loads(d.results)
+    company_info = json.loads(d.company_info) if d.company_info else {}
+    client_name = d.client.name if d.client else "Client"
+    diag_type_label = "Cybersécurité" if d.type == "cyber" else "Opportunités IA"
+    now_str = _now().strftime("%d/%m/%Y")
+
+    # Construire le HTML du rapport
+    sections_html = ""
+    for section in results.get("sections", []):
+        score_pct = section.get("score_pct", 0)
+        color = "#059669" if score_pct >= 70 else "#d97706" if score_pct >= 40 else "#dc2626"
+        precos_html = ""
+        for preco in section.get("preconisations", []):
+            precos_html += f"<li style='margin-bottom:4px'>{preco}</li>"
+        sections_html += f"""
+        <div style="margin-bottom:20px;border:1px solid #e5e7eb;border-radius:8px;padding:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <h3 style="margin:0;color:#1f2937">{section.get('title','')}</h3>
+                <span style="background:{color};color:white;padding:2px 10px;border-radius:12px;font-size:13px;font-weight:600">{score_pct}%</span>
+            </div>
+            <div style="background:#f3f4f6;border-radius:4px;height:8px;margin-bottom:12px"><div style="background:{color};height:8px;border-radius:4px;width:{score_pct}%"></div></div>
+            {'<h4 style="font-size:13px;color:#6b7280;margin:8px 0 4px">Préconisations</h4><ul style="margin:0;padding-left:20px;font-size:13px;color:#374151">' + precos_html + '</ul>' if precos_html else ''}
+        </div>"""
+
+    global_score = results.get("global_score", 0)
+    global_color = "#059669" if global_score >= 70 else "#d97706" if global_score >= 40 else "#dc2626"
+
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    body{{font-family:'Segoe UI',Tahoma,sans-serif;max-width:800px;margin:0 auto;padding:40px 30px;color:#1f2937}}
+    h1{{color:#2850ff;font-size:22px;margin-bottom:4px}}
+    h2{{color:#374151;font-size:16px;border-bottom:2px solid #2850ff;padding-bottom:6px;margin-top:28px}}
+    .meta{{color:#6b7280;font-size:13px;margin-bottom:24px}}
+    .score-global{{text-align:center;margin:30px 0;padding:24px;background:linear-gradient(135deg,#f0f4ff,#ede9fe);border-radius:12px}}
+    .score-global .num{{font-size:48px;font-weight:700;color:{global_color}}}
+    .score-global .label{{font-size:14px;color:#6b7280}}
+    </style></head><body>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:40px;height:40px;background:#2850ff;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700">S</div>
+        <div><h1 style="margin:0">SENSIA DVZ</h1><p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px">Conseil IA · PME & Entrepreneurs</p></div>
+    </div>
+    <h1>Rapport de Diagnostic {diag_type_label}</h1>
+    <div class="meta">
+        <strong>Client :</strong> {client_name} &nbsp;|&nbsp;
+        <strong>Date :</strong> {now_str} &nbsp;|&nbsp;
+        <strong>Réf :</strong> DIAG-{d.id:04d}
+    </div>
+    <div class="score-global">
+        <div class="label">Score Global</div>
+        <div class="num">{global_score}%</div>
+        <div class="label">{'Conforme' if global_score >= 70 else 'Amélioration nécessaire' if global_score >= 40 else 'Critique'}</div>
+    </div>
+    <h2>Résultats par Section</h2>
+    {sections_html}
+    <hr style="margin-top:40px;border:none;border-top:1px solid #e5e7eb">
+    <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px">
+        Rapport généré automatiquement par SENSIA Manager — {now_str}<br>
+        Ce document est confidentiel.
+    </p>
+    </body></html>"""
+
+    # Essayer de générer le PDF avec weasyprint, sinon renvoyer le HTML
+    try:
+        from weasyprint import HTML as WeasyHTML
+        pdf_bytes = WeasyHTML(string=html).write_pdf()
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="diagnostic_{d.type}_{d.id}.pdf"'
+            }
+        )
+    except ImportError:
+        # Fallback: renvoyer le HTML directement si weasyprint n'est pas installé
+        return Response(
+            content=html.encode("utf-8"),
+            media_type="text/html",
+            headers={
+                "Content-Disposition": f'attachment; filename="diagnostic_{d.type}_{d.id}.html"'
+            }
+        )
+
+
+@app.post("/api/diagnostics/{diag_id}/regenerate-token")
+def regenerate_share_token(diag_id: int, db: Session = Depends(get_db)):
+    """Régénère le token de partage d'un diagnostic."""
+    d = db.query(Diagnostic).filter(Diagnostic.id == diag_id).first()
+    if not d:
+        raise HTTPException(404, "Diagnostic non trouvé")
+    d.share_token = uuid.uuid4().hex
+    d.updated_at = _now()
+    db.commit()
+    return {"id": d.id, "share_token": d.share_token}
 
 
 # ═══════════════════════════════════════════════════════════════

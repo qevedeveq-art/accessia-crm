@@ -9,6 +9,7 @@ import {
   FileText,
   Folder,
   CreditCard,
+  ClipboardCheck,
   Settings,
   ChevronRight,
 } from 'lucide-react'
@@ -19,6 +20,7 @@ const nav = [
   { href: '/clients',   label: 'Clients',     icon: Users },
   { href: '/projects',  label: 'Projets',     icon: FolderKanban },
   { href: '/finances',  label: 'Finances',    icon: CreditCard },
+  { href: '/diagnostics', label: 'Diagnostics', icon: ClipboardCheck },
   { href: '/files',     label: 'Fichiers',    icon: Folder },
   { href: '/crm',       label: 'CRM',icon: FileText },
 ]
