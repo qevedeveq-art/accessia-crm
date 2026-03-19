@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import {
@@ -55,15 +56,16 @@ export default function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 w-[var(--sidebar-width)] bg-accessia-950 text-white flex flex-col z-40">
       {/* Logo */}
-      <div className="px-5 py-6 border-b border-accessia-800">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-accessia-500 flex items-center justify-center font-bold text-sm">
-            A
-          </div>
-          <div>
-            <p className="font-semibold text-sm leading-tight">ACCESSIA Pro</p>
-            <p className="text-[10px] text-accessia-400 uppercase tracking-widest">Manager</p>
-          </div>
+      <div className="px-4 py-4 border-b border-accessia-800">
+        <div className="bg-white rounded-xl px-3 py-2 flex items-center justify-center">
+          <Image
+            src="/logo.jpg"
+            alt="ACCESSIA Pro"
+            width={160}
+            height={68}
+            className="object-contain"
+            priority
+          />
         </div>
       </div>
 
