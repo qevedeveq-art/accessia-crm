@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { getClients, createClient, Client, ClientCreate } from '@/lib/api'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { getClients, createClient, searchCompany, Client, ClientCreate } from '@/lib/api'
 import Link from 'next/link'
-import { Plus, Search, Building2, Mail, Phone } from 'lucide-react'
+import { Plus, Search, Building2, Mail, Phone, Loader2, Wand2 } from 'lucide-react'
 
 const STATUS_OPTS = ['prospect', 'active', 'inactive']
 const TYPE_OPTS   = ['micro', 'pme', 'eti', 'grand_compte']
@@ -28,7 +29,8 @@ const EMPTY: ClientCreate = {
   source: '', budget_range: '', notes: '',
 }
 
-export default function ClientsPage() {
+function ClientsContent() {
+  const searchParams = useSearchParams()
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
@@ -36,6 +38,7 @@ export default function ClientsPage() {
   const [form, setForm] = useState<ClientCreate>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [siretSearching, setSiretSearching] = useState(false)
 
   const load = () =>
     getClients({ search: search || undefined, status: filter || undefined })
@@ -43,6 +46,38 @@ export default function ClientsPage() {
       .catch(e => setError(e.message))
 
   useEffect(() => { load() }, [search, filter])
+
+  // Pré-remplissage depuis la page Prospection IA
+  useEffect(() => {
+    const prefill = searchParams.get('prefill')
+    if (prefill) {
+      try {
+        const data = JSON.parse(prefill) as Partial<ClientCreate>
+        setForm(f => ({ ...f, ...data }))
+        setOpen(true)
+      } catch { /* ignore */ }
+    }
+  }, [searchParams])
+
+  const fillFromSiret = async () => {
+    if (!form.siret || form.siret.replace(/\s/g, '').length < 9) return
+    setSiretSearching(true)
+    try {
+      const data = await searchCompany(form.siret.replace(/\s/g, ''))
+      if (data.results.length > 0) {
+        const c = data.results[0]
+        const typeMap: Record<string, string> = { GE: 'grand_compte', ETI: 'eti', PME: 'pme', TPE: 'micro' }
+        setForm(f => ({
+          ...f,
+          name: f.name || c.name,
+          siret: c.siret_siege || f.siret,
+          address: f.address || (c.address ? `${c.address}${c.postal_code ? ` ${c.postal_code} ${c.city}` : ''}` : ''),
+          type: typeMap[c.categorie] || f.type || 'pme',
+        }))
+      }
+    } catch { /* silently ignore */ }
+    setSiretSearching(false)
+  }
 
   const set = (k: keyof ClientCreate, v: string | boolean) =>
     setForm(f => ({ ...f, [k]: v }))
@@ -244,10 +279,23 @@ export default function ClientsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SIRET</label>
-                  <input value={form.siret} onChange={e => set('siret', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
-                    placeholder="123 456 789 00012" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">SIREN / SIRET</label>
+                  <div className="flex gap-2">
+                    <input value={form.siret} onChange={e => set('siret', e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
+                      placeholder="123 456 789 00012" />
+                    <button
+                      type="button"
+                      onClick={fillFromSiret}
+                      disabled={siretSearching || !form.siret || form.siret.replace(/\s/g, '').length < 9}
+                      title="Rechercher et remplir automatiquement depuis le registre"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-accessia-50 text-accessia-700 border border-accessia-200 rounded-lg text-xs font-medium hover:bg-accessia-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                    >
+                      {siretSearching ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                      Auto-fill
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1">Entrez un SIREN ou SIRET puis cliquez Auto-fill pour récupérer les données officielles</p>
                 </div>
 
                 <div>
@@ -289,5 +337,13 @@ export default function ClientsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense>
+      <ClientsContent />
+    </Suspense>
   )
 }

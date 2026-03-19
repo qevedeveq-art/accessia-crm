@@ -6,7 +6,8 @@ import os
 import json
 import uuid
 import logging
-from datetime import datetime, timezone
+import httpx
+from datetime import datetime, timezone, date as date_type
 from enum import Enum
 from typing import Optional, List
 
@@ -1612,6 +1613,306 @@ def _serialize_time_entry(e: TimeEntry) -> dict:
         "description": e.description,
         "created_at": e.created_at.isoformat() if e.created_at else None,
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# RECHERCHE ENTREPRISE + ÉLIGIBILITÉ AIDES IA
+# ═══════════════════════════════════════════════════════════════
+
+_NAF_SECTORS: dict[str, str] = {
+    "01": "Agriculture", "02": "Sylviculture", "03": "Pêche",
+    "05": "Extraction charbon", "06": "Extraction pétrole/gaz", "07": "Extraction minerais",
+    "10": "Agroalimentaire", "11": "Boissons", "13": "Textile", "14": "Habillement",
+    "16": "Bois / Papier", "17": "Papier / Carton", "18": "Imprimerie",
+    "20": "Chimie", "21": "Pharmacie", "22": "Plastiques / Caoutchouc",
+    "23": "Minéraux / Verre / Ciment", "24": "Métallurgie", "25": "Fabrication métallique",
+    "26": "Électronique / Informatique", "27": "Équipements électriques",
+    "28": "Machines industrielles", "29": "Automobile", "30": "Autres transports",
+    "33": "Réparation machines", "35": "Énergie / Électricité / Gaz",
+    "36": "Eau / Distribution", "37": "Assainissement", "38": "Déchets / Recyclage",
+    "41": "Construction BTP", "42": "Génie civil", "43": "Travaux spécialisés",
+    "45": "Commerce auto", "46": "Commerce de gros", "47": "Commerce de détail",
+    "49": "Transport terrestre", "50": "Transport maritime", "51": "Transport aérien",
+    "52": "Logistique / Entreposage", "55": "Hôtellerie", "56": "Restauration",
+    "58": "Édition", "59": "Audiovisuel / Cinéma", "60": "Radio / TV",
+    "61": "Télécommunications", "62": "Informatique / Développement",
+    "63": "Services informatiques / Data", "64": "Finance / Banque",
+    "65": "Assurance", "66": "Services financiers",
+    "68": "Immobilier", "69": "Droit / Comptabilité",
+    "70": "Conseil aux entreprises", "71": "Ingénierie / Architecture",
+    "72": "Recherche & Développement", "73": "Publicité / Communication",
+    "74": "Activités spécialisées", "75": "Vétérinaire",
+    "77": "Location", "78": "Recrutement / RH", "79": "Tourisme",
+    "80": "Sécurité / Surveillance", "81": "Services aux bâtiments",
+    "82": "Services administratifs", "84": "Administration publique",
+    "85": "Éducation / Formation", "86": "Santé / Médical",
+    "87": "Hébergement médico-social", "88": "Services sociaux",
+    "90": "Arts / Spectacle", "91": "Bibliothèques / Musées",
+    "92": "Jeux / Paris", "93": "Sport / Loisirs",
+    "94": "Associations", "95": "Réparation", "96": "Services personnels",
+    "97": "Ménages employeurs", "99": "Organisations internationales",
+}
+
+_EFFECTIF_LABELS: dict[str, str] = {
+    "NN": "Non employeuse",
+    "00": "0 salarié",
+    "01": "1 à 2",
+    "02": "3 à 5",
+    "03": "6 à 9",
+    "11": "10 à 19",
+    "12": "20 à 49",
+    "21": "50 à 99",
+    "22": "100 à 199",
+    "31": "200 à 249",
+    "32": "250 à 499",
+    "41": "500 à 999",
+    "42": "1 000 à 1 999",
+    "51": "2 000 à 4 999",
+    "52": "5 000 à 9 999",
+    "53": "10 000 et plus",
+}
+
+# Ordre croissant des tranches d'effectif
+_EFFECTIF_ORDER = ["NN", "00", "01", "02", "03", "11", "12", "21", "22", "31", "32", "41", "42", "51", "52", "53"]
+
+
+def _naf_sector_label(naf_code: str) -> str:
+    prefix = naf_code[:2] if naf_code and len(naf_code) >= 2 else ""
+    return _NAF_SECTORS.get(prefix, f"Secteur NAF {naf_code}")
+
+
+def _effectif_rank(code: str) -> int:
+    try:
+        return _EFFECTIF_ORDER.index(code)
+    except ValueError:
+        return 0
+
+
+def _company_age_years(date_creation: Optional[str]) -> Optional[float]:
+    if not date_creation:
+        return None
+    try:
+        d = date_type.fromisoformat(date_creation)
+        return (date_type.today() - d).days / 365.25
+    except Exception:
+        return None
+
+
+def _compute_grants(company: dict) -> list:
+    """Calcule l'éligibilité aux aides IA pour une entreprise donnée."""
+    effectif_code = company.get("effectif_code") or "NN"
+    categorie = company.get("categorie") or ""  # PME, ETI, GE
+    date_creation = company.get("date_creation")
+    region = company.get("region") or ""
+    naf_code = company.get("naf_code") or ""
+
+    age = _company_age_years(date_creation)
+    age_ok = age is not None and age >= 1
+    age_label = f"{age:.1f} an(s)" if age is not None else "inconnu"
+
+    rank = _effectif_rank(effectif_code)
+    has_10_plus = rank >= _EFFECTIF_ORDER.index("11")      # >= 10 salariés
+    has_2000_or_less = rank <= _EFFECTIF_ORDER.index("42") # <= 1 999 salariés
+    has_employees = rank > _EFFECTIF_ORDER.index("00")     # au moins 1 salarié
+    is_pme = categorie in ("PME", "TPE") or (rank <= _EFFECTIF_ORDER.index("31"))  # < 250 salariés
+
+    grants = []
+
+    # ── Diag Data IA — BPI France ─────────────────────────────
+    diag_ok = has_10_plus and has_2000_or_less and age_ok
+    diag_missing = []
+    diag_ok_list = []
+    if has_10_plus:
+        diag_ok_list.append(f"Effectif ≥ 10 ({_EFFECTIF_LABELS.get(effectif_code, effectif_code)})")
+    else:
+        diag_missing.append(f"Effectif < 10 ({_EFFECTIF_LABELS.get(effectif_code, effectif_code)})")
+    if has_2000_or_less:
+        diag_ok_list.append("Effectif ≤ 2 000")
+    else:
+        diag_missing.append("Effectif > 2 000 (ETI/GE exclu)")
+    if age_ok:
+        diag_ok_list.append(f"Société > 1 an ({age_label})")
+    else:
+        diag_missing.append(f"Ancienneté insuffisante ({age_label})")
+    diag_missing.append("CA > 1M€ à vérifier")
+
+    grants.append({
+        "id": "diag_data_ia",
+        "name": "Diag Data IA — BPI France",
+        "description": "8 jours d'expert IA pour identifier vos cas d'usage et la valeur métier",
+        "eligible": diag_ok,
+        "confidence": "high" if diag_ok else ("medium" if (has_employees and age_ok) else "low"),
+        "amount_label": "~7 500€ économisés (25% pris en charge)",
+        "amount_max": 7500,
+        "conditions_ok": diag_ok_list,
+        "conditions_missing": diag_missing,
+        "url": "https://diag.bpifrance.fr/diag-data-ia",
+        "deadline": "Prochaine clôture : 28 avril 2026",
+    })
+
+    # ── IA Booster France 2030 — BPI France ──────────────────
+    boost_ok = has_10_plus and has_2000_or_less and age_ok
+    boost_ok_list = list(diag_ok_list)
+    boost_missing = ["CA > 250 000€ à vérifier", "Projet IA structuré requis"]
+    if not has_10_plus:
+        boost_missing.insert(0, f"Effectif < 10 ({_EFFECTIF_LABELS.get(effectif_code, effectif_code)})")
+
+    grants.append({
+        "id": "ia_booster",
+        "name": "IA Booster France 2030 — BPI France",
+        "description": "Diagnostic + accompagnement + financement de projets IA (40 à 80% couverts)",
+        "eligible": boost_ok,
+        "confidence": "high" if boost_ok else ("medium" if has_employees else "low"),
+        "amount_label": "Jusqu'à 80% du projet financé",
+        "amount_max": 0,
+        "conditions_ok": boost_ok_list,
+        "conditions_missing": boost_missing,
+        "url": "https://www.bpifrance.fr/catalogue-offres/ia-booster-france-2030",
+        "deadline": "Prochaines clôtures : 28 avr. 2026 / 25 nov. 2026",
+    })
+
+    # ── Crédit d'Impôt Innovation (CII) ──────────────────────
+    cii_ok = is_pme
+    cii_ok_list = []
+    cii_missing = []
+    if is_pme:
+        cii_ok_list.append(f"PME confirmée ({categorie or 'taille compatible'})")
+    else:
+        cii_missing.append(f"Réservé aux PME (< 250 salariés) — catégorie : {categorie}")
+    cii_ok_list.append("Régime fiscal réel requis")
+    cii_missing.append("Dépenses R&D/prototype à documenter")
+
+    grants.append({
+        "id": "cii",
+        "name": "Crédit d'Impôt Innovation (CII)",
+        "description": "20% des dépenses de prototype et pilote IA déductibles de l'IS",
+        "eligible": cii_ok,
+        "confidence": "medium",
+        "amount_label": "20% des dépenses innovation",
+        "amount_max": 0,
+        "conditions_ok": cii_ok_list,
+        "conditions_missing": cii_missing,
+        "url": "https://www.bpifrance.fr/nos-solutions/financements/credits-impots/cii",
+        "deadline": "Valable jusqu'au 31 décembre 2027",
+    })
+
+    # ── OPCO Formation IA ─────────────────────────────────────
+    opco_ok = has_employees
+    opco_ok_list = []
+    opco_missing = []
+    if has_employees:
+        opco_ok_list.append(f"Effectif salarié ({_EFFECTIF_LABELS.get(effectif_code, effectif_code)})")
+    else:
+        opco_missing.append("Aucun salarié déclaré")
+    opco_missing.append("Prestataire Qualiopi requis")
+    opco_missing.append("OPCO sectoriel à identifier")
+
+    grants.append({
+        "id": "opco_formation",
+        "name": "OPCO — Formation IA",
+        "description": "Financement des formations IA par l'Opérateur de Compétences sectoriel",
+        "eligible": opco_ok,
+        "confidence": "medium" if opco_ok else "low",
+        "amount_label": "Jusqu'à 3 500€/salarié/an",
+        "amount_max": 3500,
+        "conditions_ok": opco_ok_list,
+        "conditions_missing": opco_missing,
+        "url": "https://www.opco-atlas.fr",
+        "deadline": None,
+    })
+
+    # ── Aide régionale ────────────────────────────────────────
+    has_region = bool(region)
+    region_ok_list = [f"Région identifiée : {region}"] if has_region else []
+    region_missing = []
+    if not has_region:
+        region_missing.append("Région non identifiée")
+    region_missing.append("Taux variable selon région (30–50%)")
+    region_missing.append("Contacter votre DREETS régionale")
+
+    grants.append({
+        "id": "aide_regionale",
+        "name": "Aide régionale — DREETS / Conseil Régional",
+        "description": "Subventions régionales pour la transformation numérique et IA des PME",
+        "eligible": has_region and is_pme,
+        "confidence": "low",
+        "amount_label": "30 à 50% selon région",
+        "amount_max": 0,
+        "conditions_ok": region_ok_list,
+        "conditions_missing": region_missing,
+        "url": "https://les-aides.fr/organismes/IA/dreets.html",
+        "deadline": None,
+    })
+
+    return grants
+
+
+def _normalize_company(r: dict) -> dict:
+    """Normalise un résultat de l'API gouvernementale."""
+    siege = r.get("siege") or {}
+    naf_code = (r.get("activite_principale") or siege.get("activite_principale") or "").strip()
+    effectif_code = (r.get("tranche_effectif_salarie") or siege.get("tranche_effectif_salarie") or "NN").strip()
+    categorie_raw = (r.get("categorie_entreprise") or "").strip().upper()
+    # L'API retourne parfois "PME", "TPE", "ETI", "GE"
+    if categorie_raw in ("PME", "TPE", "ETI", "GE"):
+        categorie = categorie_raw
+    elif effectif_code in ("NN", "00", "01", "02", "03"):
+        categorie = "TPE"
+    elif effectif_code in ("11", "12", "21", "22", "31"):
+        categorie = "PME"
+    elif effectif_code in ("32", "41", "42"):
+        categorie = "ETI"
+    else:
+        categorie = "GE"
+
+    postal_code = siege.get("code_postal") or ""
+    region = siege.get("libelle_region") or ""
+
+    address_parts = [p for p in [
+        siege.get("numero_voie"), siege.get("type_voie"), siege.get("libelle_voie"),
+    ] if p]
+    address = " ".join(address_parts)
+
+    date_creation = r.get("date_creation") or siege.get("date_creation")
+
+    company = {
+        "siren": r.get("siren") or "",
+        "siret_siege": siege.get("siret") or r.get("siret_siege") or "",
+        "name": r.get("nom_complet") or r.get("denomination") or "",
+        "naf_code": naf_code,
+        "naf_label": _naf_sector_label(naf_code),
+        "effectif_code": effectif_code,
+        "effectif_label": _EFFECTIF_LABELS.get(effectif_code, effectif_code),
+        "categorie": categorie,
+        "status": "actif" if (r.get("etat_administratif") or siege.get("etat_administratif")) == "A" else "cessé",
+        "date_creation": date_creation,
+        "address": address or siege.get("adresse") or "",
+        "postal_code": postal_code,
+        "city": siege.get("libelle_commune") or "",
+        "region": region,
+    }
+    company["grants"] = _compute_grants(company)
+    return company
+
+
+@app.get("/api/search-company")
+def search_company(q: str = Query(..., min_length=2)):
+    """Recherche une entreprise française par nom, SIREN ou SIRET via l'API officielle."""
+    try:
+        with httpx.Client(timeout=8) as client:
+            resp = client.get(
+                "https://recherche-entreprises.api.gouv.fr/search",
+                params={"q": q, "per_page": 5, "page": 1},
+                headers={"User-Agent": "ACCESSIA-Pro/1.0"},
+            )
+            resp.raise_for_status()
+        data = resp.json()
+        results = [_normalize_company(r) for r in data.get("results", [])]
+        return {"results": results, "total": data.get("total_results", len(results))}
+    except httpx.TimeoutException:
+        raise HTTPException(504, "L'API entreprises n'a pas répondu (timeout)")
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"Erreur d'accès à l'API entreprises : {str(e)}")
 
 
 # ═══════════════════════════════════════════════════════════════

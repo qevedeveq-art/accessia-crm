@@ -1,7 +1,7 @@
 import {
   DEMO_DASHBOARD, DEMO_CLIENTS, DEMO_CLIENT_DETAILS, DEMO_PROJECTS,
   DEMO_INVOICES, DEMO_ACTIVITIES, DEMO_TASKS, DEMO_DIAGNOSTICS, DEMO_PIPELINE,
-  DEMO_QUOTES, DEMO_TIME_ENTRIES, DEMO_ALERTS, DEMO_REPORTING,
+  DEMO_QUOTES, DEMO_TIME_ENTRIES, DEMO_ALERTS, DEMO_REPORTING, DEMO_COMPANY_SEARCH,
 } from './demo-data'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
@@ -673,3 +673,42 @@ export interface ReportingData {
   ca_by_type: { type: string; ca_ht: number }[]
   top_clients: { client_name: string; ca_ht: number; nb_projects: number }[]
 }
+
+// ─── RECHERCHE ENTREPRISE ─────────────────────────────────────
+
+export interface GrantInfo {
+  id: string
+  name: string
+  description: string
+  eligible: boolean
+  confidence: 'high' | 'medium' | 'low'
+  amount_label: string
+  amount_max: number
+  conditions_ok: string[]
+  conditions_missing: string[]
+  url: string
+  deadline?: string | null
+}
+
+export interface CompanySearchResult {
+  siren: string
+  siret_siege: string
+  name: string
+  naf_code: string
+  naf_label: string
+  effectif_code: string
+  effectif_label: string
+  categorie: string
+  status: 'actif' | 'cessé'
+  date_creation: string | null
+  address: string
+  postal_code: string
+  city: string
+  region: string
+  grants: GrantInfo[]
+}
+
+export const searchCompany = (q: string): Promise<{ results: CompanySearchResult[]; total: number }> =>
+  isDemoMode()
+    ? Promise.resolve(DEMO_COMPANY_SEARCH)
+    : request<{ results: CompanySearchResult[]; total: number }>(`/search-company?q=${encodeURIComponent(q)}`)

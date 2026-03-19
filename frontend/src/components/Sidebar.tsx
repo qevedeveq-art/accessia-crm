@@ -16,19 +16,21 @@ import {
   FlaskConical,
   X,
   BarChart2,
+  SearchCheck,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { isDemoMode, enableDemoMode, disableDemoMode, DEMO_KEY } from '@/lib/api'
 
 const nav = [
-  { href: '/',            label: 'Dashboard',    icon: LayoutDashboard },
-  { href: '/clients',     label: 'Clients',      icon: Users },
-  { href: '/projects',    label: 'Projets',      icon: FolderKanban },
-  { href: '/finances',    label: 'Finances',     icon: CreditCard },
-  { href: '/diagnostics', label: 'Diagnostics',  icon: ClipboardCheck },
-  { href: '/files',       label: 'Fichiers',     icon: Folder },
-  { href: '/crm',         label: 'CRM',          icon: FileText },
-  { href: '/reporting',   label: 'Reporting',    icon: BarChart2 },
+  { href: '/',            label: 'Dashboard',       icon: LayoutDashboard },
+  { href: '/clients',     label: 'Clients',         icon: Users },
+  { href: '/projects',    label: 'Projets',         icon: FolderKanban },
+  { href: '/finances',    label: 'Finances',        icon: CreditCard },
+  { href: '/diagnostics', label: 'Diagnostics',     icon: ClipboardCheck },
+  { href: '/recherche',   label: 'Prospection IA',  icon: SearchCheck },
+  { href: '/files',       label: 'Fichiers',        icon: Folder },
+  { href: '/crm',         label: 'CRM',             icon: FileText },
+  { href: '/reporting',   label: 'Reporting',       icon: BarChart2 },
 ]
 
 export default function Sidebar() {
