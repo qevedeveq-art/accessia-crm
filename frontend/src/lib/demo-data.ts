@@ -662,6 +662,34 @@ export const DEMO_DIAGNOSTICS: DiagnosticItem[] = [
     created_at: '2026-02-10T10:00:00Z',
     updated_at: '2026-02-10T10:00:00Z',
   },
+  {
+    id: 4,
+    client_id: 3,
+    client_name: 'MedConnect',
+    type: 'rgpd',
+    title: 'Diagnostic Conformité RGPD — MedConnect 2026',
+    status: 'termine',
+    share_token: 'demo-token-rgpd-004',
+    company_info: {
+      company_name: 'MedConnect',
+      sector: 'Santé numérique',
+      employees: '15-20',
+      contact_name: 'Sophie Leroux',
+    },
+    answers: {},
+    results: {
+      global_score: 48,
+      sections: [
+        { id: 'gouvernance', title: '1. Gouvernance & Responsabilité', score_pct: 50, preconisations: ['Désigner un DPO ou référent RGPD et le notifier à la CNIL si obligatoire', 'Créer et maintenir un registre des traitements (modèle CNIL disponible)', 'Rédiger une politique RGPD interne et la faire signer par les équipes'] },
+        { id: 'droits_personnes', title: '2. Droits des Personnes', score_pct: 42, preconisations: ["Revoir les bannières cookies et formulaires de consentement (opt-in explicite)", "Créer une procédure documentée pour traiter les demandes d'exercice de droits"] },
+        { id: 'securite', title: '3. Sécurité des Données', score_pct: 65, preconisations: ["Appliquer la pseudonymisation sur les environnements de test et analytics", "Réaliser une revue trimestrielle des droits d'accès"] },
+        { id: 'sous_traitants', title: '4. Sous-traitants & Transferts', score_pct: 33, preconisations: ['Cartographier tous les sous-traitants accédant à des données personnelles', 'Signer des DPA conformes avec tous les sous-traitants (modèle CNIL)', 'Identifier les transferts hors UE et les encadrer'] },
+        { id: 'violations', title: '5. Violations & Documentation', score_pct: 50, preconisations: ["Rédiger une procédure de gestion des violations (72h CNIL)", "Réaliser un PIA pour les traitements à risque"] },
+      ],
+    },
+    created_at: '2026-01-20T10:00:00Z',
+    updated_at: '2026-02-15T14:00:00Z',
+  },
 ]
 
 // ─── PIPELINE CRM ─────────────────────────────────────────────

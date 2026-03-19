@@ -8,12 +8,13 @@ import {
 import Link from 'next/link'
 import {
   Plus, Search, Shield, Brain, Trash2, Download, Share2,
-  ClipboardCheck, ExternalLink, Filter,
+  ClipboardCheck, ExternalLink, Filter, Scale,
 } from 'lucide-react'
 
 const TYPE_LABELS: Record<string, { label: string; icon: any; color: string; bg: string }> = {
-  cyber: { label: 'Cybersécurité', icon: Shield, color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
-  ia:    { label: 'Opportunités IA', icon: Brain, color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200' },
+  cyber: { label: 'Cybersécurité',   icon: Shield, color: 'text-red-700',    bg: 'bg-red-50 border-red-200' },
+  ia:    { label: 'Opportunités IA', icon: Brain,  color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200' },
+  rgpd:  { label: 'Conformité RGPD', icon: Scale,  color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200' },
 }
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
@@ -95,10 +96,13 @@ export default function DiagnosticsPage() {
     setTimeout(() => setCopied(null), 2000)
   }
 
+  const rgpdDiags = filtered.filter(d => d.type === 'rgpd')
+
   const stats = {
     total: diagnostics.length,
     cyber: diagnostics.filter(d => d.type === 'cyber').length,
     ia: diagnostics.filter(d => d.type === 'ia').length,
+    rgpd: diagnostics.filter(d => d.type === 'rgpd').length,
     termine: diagnostics.filter(d => d.status === 'termine').length,
     en_cours: diagnostics.filter(d => d.status === 'en_cours').length,
   }
@@ -122,11 +126,12 @@ export default function DiagnosticsPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
         {[
           { label: 'Total', value: stats.total, color: 'text-gray-900' },
           { label: 'Cybersécurité', value: stats.cyber, color: 'text-red-600' },
           { label: 'Opportunités IA', value: stats.ia, color: 'text-violet-600' },
+          { label: 'RGPD', value: stats.rgpd, color: 'text-blue-600' },
           { label: 'Terminés', value: stats.termine, color: 'text-green-600' },
           { label: 'En cours', value: stats.en_cours, color: 'text-amber-600' },
         ].map((k, i) => (
@@ -159,6 +164,7 @@ export default function DiagnosticsPage() {
           <option value="">Tous les types</option>
           <option value="cyber">Cybersécurité</option>
           <option value="ia">Opportunités IA</option>
+          <option value="rgpd">Conformité RGPD</option>
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input w-auto">
           <option value="">Tous les statuts</option>
@@ -169,12 +175,13 @@ export default function DiagnosticsPage() {
 
       {/* Liste par section */}
       {[
-        { type: 'cyber', items: typeFilter === 'ia' ? [] : cyberDiags, label: 'Cybersécurité', icon: Shield, accent: 'border-l-red-500' },
-        { type: 'ia', items: typeFilter === 'cyber' ? [] : iaDiags, label: 'Opportunités IA', icon: Brain, accent: 'border-l-violet-500' },
+        { type: 'cyber', items: cyberDiags, label: 'Cybersécurité', icon: Shield, accent: 'border-l-red-500' },
+        { type: 'ia',   items: iaDiags,    label: 'Opportunités IA', icon: Brain,  accent: 'border-l-violet-500' },
+        { type: 'rgpd', items: rgpdDiags,  label: 'Conformité RGPD', icon: Scale,  accent: 'border-l-blue-500' },
       ].filter(section => !typeFilter || section.type === typeFilter).map(section => (
         <div key={section.type} className="mb-8">
           <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2 mb-3">
-            <section.icon size={18} className={section.type === 'cyber' ? 'text-red-600' : 'text-violet-600'} />
+            <section.icon size={18} className={section.type === 'cyber' ? 'text-red-600' : section.type === 'rgpd' ? 'text-blue-600' : 'text-violet-600'} />
             {section.label}
             <span className="text-sm font-normal text-gray-400">({section.items.length})</span>
           </h2>
@@ -257,27 +264,30 @@ export default function DiagnosticsPage() {
 
               <div>
                 <label className="label">Type de diagnostic *</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {(['cyber', 'ia'] as const).map(t => {
+                <div className="grid grid-cols-3 gap-3">
+                  {([
+                    { t: 'cyber' as const, sub: 'Basé sur le guide ANSSI' },
+                    { t: 'ia' as const,    sub: 'Quick wins & opportunités' },
+                    { t: 'rgpd' as const,  sub: 'Conformité Règlement UE 2016/679' },
+                  ]).map(({ t, sub }) => {
                     const info = TYPE_LABELS[t]
                     const Icon = info.icon
-                    const selected = form.type === t
+                    const sel = form.type === t
+                    const defaultTitles: Record<string, string> = {
+                      cyber: 'Diagnostic Cybersécurité',
+                      ia: 'Diagnostic Opportunités IA',
+                      rgpd: 'Diagnostic Conformité RGPD',
+                    }
                     return (
                       <button key={t}
-                        onClick={() => setForm(f => ({
-                          ...f,
-                          type: t,
-                          title: f.title || (t === 'cyber' ? 'Diagnostic Cybersécurité' : 'Diagnostic Opportunités IA'),
-                        }))}
+                        onClick={() => setForm(f => ({ ...f, type: t, title: f.title || defaultTitles[t] }))}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
-                          selected ? 'border-accessia-500 bg-accessia-50' : 'border-gray-200 hover:border-gray-300'
+                          sel ? 'border-accessia-500 bg-accessia-50' : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        <Icon size={20} className={selected ? 'text-accessia-600' : 'text-gray-400'} />
-                        <p className={`font-medium text-sm mt-1 ${selected ? 'text-accessia-700' : 'text-gray-700'}`}>{info.label}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                          {t === 'cyber' ? 'Basé sur le guide ANSSI' : 'Quick wins & opportunités'}
-                        </p>
+                        <Icon size={20} className={sel ? 'text-accessia-600' : 'text-gray-400'} />
+                        <p className={`font-medium text-sm mt-1 ${sel ? 'text-accessia-700' : 'text-gray-700'}`}>{info.label}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>
                       </button>
                     )
                   })}

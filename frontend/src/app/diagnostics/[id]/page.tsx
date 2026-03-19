@@ -328,6 +328,88 @@ const IA_SECTIONS = [
 ]
 
 // ═══════════════════════════════════════════════════════════════
+// QUESTIONNAIRE DATA — RGPD
+// ═══════════════════════════════════════════════════════════════
+
+const RGPD_SECTIONS = [
+  {
+    id: "gouvernance", title: "1. Gouvernance & Responsabilité", icon: "⚖️",
+    desc: "DPO, registre des traitements, politique de protection des données",
+    questions: [
+      { id: "gov_dpo", text: "Un Délégué à la Protection des Données (DPO) est-il désigné ?", options: ["Oui, DPO désigné et notifié à la CNIL", "Oui, référent interne mais non notifié", "Non, personne n'est identifié", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "gov_registre", text: "Disposez-vous d'un registre des activités de traitement tenu à jour ?", options: ["Oui, complet et régulièrement mis à jour", "Existe mais incomplet ou obsolète", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "gov_politique", text: "Une politique de protection des données est-elle formalisée ?", options: ["Oui, diffusée et signée par les collaborateurs", "Existe mais non diffusée", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "gov_sensibilisation", text: "Les collaborateurs sont-ils formés/sensibilisés au RGPD ?", options: ["Oui, formation annuelle obligatoire", "Sensibilisation ponctuelle", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+    ],
+    preconisations: {
+      debutant: ["Désigner un DPO ou référent RGPD et le notifier à la CNIL si obligatoire", "Créer et maintenir un registre des traitements (modèle CNIL disponible)", "Rédiger une politique RGPD interne et la faire signer par les équipes"],
+      intermediaire: ["Planifier des formations RGPD annuelles pour tous les collaborateurs", "Auditer le registre chaque trimestre"],
+      avance: ["Mettre en place un programme de conformité RGPD continu", "Effectuer des audits internes RGPD réguliers"],
+    },
+  },
+  {
+    id: "droits_personnes", title: "2. Droits des Personnes", icon: "👤",
+    desc: "Consentement, droit d'accès, rectification, effacement, portabilité",
+    questions: [
+      { id: "dp_consentement", text: "Le recueil du consentement est-il valide (libre, éclairé, spécifique, univoque) ?", options: ["Oui, conformité vérifiée (cases opt-in, granularité)", "Partiellement (cases pré-cochées ou formulation vague)", "Non conforme ou absent", "N/A"], weights: [3, 1, 0, 0], max: 3 },
+      { id: "dp_acces", text: "Pouvez-vous répondre à une demande d'accès aux données en moins de 30 jours ?", options: ["Oui, procédure formalisée et testée", "Oui, mais de manière ad hoc", "Non, pas de procédure", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "dp_effacement", text: "Les demandes d'effacement (droit à l'oubli) sont-elles traitées ?", options: ["Oui, procédure automatisée ou formalisée", "Oui, manuellement au cas par cas", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "dp_portabilite", text: "Pouvez-vous fournir les données dans un format structuré et réutilisable ?", options: ["Oui, export automatique disponible (JSON, CSV)", "Oui, manuellement", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+    ],
+    preconisations: {
+      debutant: ["Revoir les bannières cookies et formulaires de consentement (opt-in explicite)", "Créer une procédure documentée pour traiter les demandes d'exercice de droits", "Mettre en place une adresse email dédiée : rgpd@votreentreprise.fr"],
+      intermediaire: ["Automatiser le traitement des demandes de droits dans le CRM", "Tester la procédure de portabilité avec un cas réel"],
+      avance: ["Déployer un portail de gestion des droits en libre-service", "Intégrer la gestion des droits dans les APIs produit"],
+    },
+  },
+  {
+    id: "securite", title: "3. Sécurité des Données", icon: "🔐",
+    desc: "Chiffrement, contrôle d'accès, pseudonymisation, journalisation",
+    questions: [
+      { id: "sec_chiffrement", text: "Les données personnelles au repos et en transit sont-elles chiffrées ?", options: ["Oui, chiffrement end-to-end systématique", "Partiellement (ex: transit chiffré, pas le stockage)", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "sec_acces", text: "Les accès aux données personnelles sont-ils contrôlés par le principe du moindre privilège ?", options: ["Oui, RBAC strict et revue régulière des droits", "Partiellement", "Non, accès large", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "sec_pseudonymisation", text: "La pseudonymisation ou anonymisation est-elle appliquée pour les traitements analytiques ?", options: ["Oui, systématiquement", "Parfois", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "sec_logs", text: "Les accès et modifications de données personnelles sont-ils journalisés (logs) ?", options: ["Oui, logs avec rétention définie et alertes", "Logs existants non exploités", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+    ],
+    preconisations: {
+      debutant: ["Chiffrer les bases de données contenant des données personnelles (AES-256)", "Mettre en place un contrôle d'accès basé sur les rôles (RBAC)", "Activer la journalisation des accès aux systèmes sensibles"],
+      intermediaire: ["Appliquer la pseudonymisation sur les environnements de test et analytics", "Réaliser une revue trimestrielle des droits d'accès"],
+      avance: ["Mettre en place une solution DLP (Data Loss Prevention)", "Déployer un SIEM pour la détection d'accès anormaux aux données personnelles"],
+    },
+  },
+  {
+    id: "sous_traitants", title: "4. Sous-traitants & Transferts", icon: "🌐",
+    desc: "DPA, transferts hors UE, clauses contractuelles types",
+    questions: [
+      { id: "st_cartographie", text: "Tous vos sous-traitants accédant à des données personnelles sont-ils identifiés ?", options: ["Oui, cartographie complète et à jour", "Partiellement identifiés", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "st_dpa", text: "Des DPA (Data Processing Agreements) sont-ils signés avec tous vos sous-traitants ?", options: ["Oui, DPA conforme RGPD avec tous les sous-traitants", "Partiellement (seulement les principaux)", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "st_transferts", text: "Des données sont-elles transférées vers des pays hors UE/EEE ?", options: ["Non ou transferts encadrés (CCT, décision d'adéquation)", "Oui mais sans encadrement juridique", "Ne sait pas", "N/A"], weights: [3, 0, 1, 0], max: 3 },
+      { id: "st_audit", text: "Auditez-vous la conformité RGPD de vos principaux sous-traitants ?", options: ["Oui, audit annuel ou questionnaire de conformité", "Rarement", "Non", "N/A"], weights: [3, 1, 0, 0], max: 3 },
+    ],
+    preconisations: {
+      debutant: ["Cartographier tous les sous-traitants accédant à des données personnelles", "Signer des DPA conformes avec tous les sous-traitants (modèle CNIL)", "Identifier les transferts hors UE et les encadrer (CCT ou décision d'adéquation)"],
+      intermediaire: ["Mettre en place un questionnaire de conformité RGPD pour les nouveaux sous-traitants", "Revoir annuellement les DPA existants"],
+      avance: ["Auditer les sous-traitants critiques sur site", "Exiger des certifications ISO 27001 ou SOC 2 des sous-traitants stratégiques"],
+    },
+  },
+  {
+    id: "violations", title: "5. Violations & Documentation", icon: "🚨",
+    desc: "PIA, procédure de notification, documentation de conformité",
+    questions: [
+      { id: "viol_procedure", text: "Une procédure de gestion des violations de données est-elle formalisée ?", options: ["Oui, procédure documentée avec délai de 72h CNIL", "Procédure informelle", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "viol_pia", text: "Des Analyses d'Impact (PIA/AIPD) ont-elles été réalisées pour les traitements à risque ?", options: ["Oui, PIA réalisés et documentés", "Certains traitements analysés", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "viol_documentation", text: "La documentation de conformité RGPD est-elle centralisée et accessible ?", options: ["Oui, dossier RGPD complet et à jour", "Documentation partielle", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+      { id: "viol_test", text: "La procédure de notification de violation a-t-elle été testée (exercice) ?", options: ["Oui, exercice réalisé dans l'année", "Non mais procédure rédigée", "Non", "N/A"], weights: [3, 1.5, 0, 0], max: 3 },
+    ],
+    preconisations: {
+      debutant: ["Rédiger une procédure de gestion des violations (72h CNIL, notification personnes concernées)", "Réaliser un PIA pour les traitements à risque (RH, santé, scoring)", "Centraliser toute la documentation RGPD dans un dossier dédié"],
+      intermediaire: ["Organiser un exercice de gestion de crise RGPD annuel", "Utiliser un outil de conformité RGPD (OneTrust, Axeptio, Didomi)"],
+      avance: ["Intégrer la gestion des violations dans le SIEM", "Obtenir la certification ISO 27701 (extension RGPD de l'ISO 27001)"],
+    },
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════
 // SCORING
 // ═══════════════════════════════════════════════════════════════
 
@@ -401,7 +483,7 @@ export default function DiagnosticDetailPage() {
   if (error) return <div className="p-6"><div className="bg-red-50 text-red-700 border border-red-200 px-4 py-3 rounded-lg text-sm">{error}</div></div>
   if (!diag) return null
 
-  const sections = diag.type === 'cyber' ? CYBER_SECTIONS : IA_SECTIONS
+  const sections = diag.type === 'cyber' ? CYBER_SECTIONS : diag.type === 'rgpd' ? RGPD_SECTIONS : IA_SECTIONS
   const totalQ = sections.reduce((s, sec) => s + sec.questions.length, 0)
   const answeredQ = Object.keys(answers).length
 
@@ -464,8 +546,8 @@ export default function DiagnosticDetailPage() {
   }
 
   const results = diag.results ?? computeResults(sections, answers)
-  const TypeIcon = diag.type === 'cyber' ? Shield : Brain
-  const typeColor = diag.type === 'cyber' ? 'text-red-600' : 'text-violet-600'
+  const TypeIcon = diag.type === 'cyber' ? Shield : diag.type === 'rgpd' ? Shield : Brain
+  const typeColor = diag.type === 'cyber' ? 'text-red-600' : diag.type === 'rgpd' ? 'text-blue-600' : 'text-violet-600'
 
   // ─── RAPPORT ────────────────────────────────────────
   if (step === 'report') {

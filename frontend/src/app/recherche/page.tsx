@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { searchCompany, CompanySearchResult, GrantInfo, ClientCreate } from '@/lib/api'
-import { Search, Building2, MapPin, Users, Calendar, CheckCircle2, XCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Plus, Loader2, Euro } from 'lucide-react'
+import { Search, Building2, MapPin, Users, Calendar, CheckCircle2, XCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, ChevronRight, Plus, Loader2, Euro } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -245,6 +245,66 @@ function ImportModal({
   )
 }
 
+// ─── Pick list (plusieurs résultats) ──────────────────────────
+
+function ResultPickList({
+  results,
+  total,
+  selected,
+  onSelect,
+}: {
+  results: CompanySearchResult[]
+  total: number
+  selected: CompanySearchResult | null
+  onSelect: (c: CompanySearchResult) => void
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-5 overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-700">
+          {results.length} résultat{results.length > 1 ? 's' : ''}
+          {total > results.length && <span className="font-normal text-gray-400"> sur {total.toLocaleString('fr-FR')}</span>}
+        </p>
+        <p className="text-xs text-gray-400">Sélectionnez une entreprise pour voir ses aides IA</p>
+      </div>
+      <div className="divide-y divide-gray-50">
+        {results.map(c => {
+          const isSelected = selected?.siren === c.siren
+          const eligible = totalEligible(c.grants)
+          return (
+            <button
+              key={c.siren}
+              onClick={() => onSelect(c)}
+              className={`w-full flex items-center gap-4 px-4 py-3.5 text-left transition-colors ${
+                isSelected
+                  ? 'bg-accessia-50 border-l-4 border-l-accessia-500'
+                  : 'hover:bg-gray-50 border-l-4 border-l-transparent'
+              }`}
+            >
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${isSelected ? 'bg-accessia-600 text-white' : 'bg-accessia-100 text-accessia-700'}`}>
+                {c.name[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold truncate ${isSelected ? 'text-accessia-800' : 'text-gray-900'}`}>{c.name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  SIREN {c.siren} · {c.naf_label} · {c.city || c.postal_code} · {c.categorie}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${c.status === 'actif' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                  {c.status}
+                </span>
+                <p className="text-xs text-gray-400 mt-1">{eligible}/{c.grants.length} aides</p>
+              </div>
+              <ChevronRight size={15} className={`shrink-0 ${isSelected ? 'text-accessia-500' : 'text-gray-300'}`} />
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Page principale ──────────────────────────────────────────
 
 export default function RecherchePage() {
@@ -254,6 +314,7 @@ export default function RecherchePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
+  const [selected, setSelected] = useState<CompanySearchResult | null>(null)
   const [importTarget, setImportTarget] = useState<CompanySearchResult | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -262,10 +323,13 @@ export default function RecherchePage() {
     setLoading(true)
     setError('')
     setSearched(true)
+    setSelected(null)
     try {
       const data = await searchCompany(q.trim())
       setResults(data.results)
       setTotal(data.total)
+      // Sélection automatique si un seul résultat
+      if (data.results.length === 1) setSelected(data.results[0])
     } catch (e: any) {
       setError(e.message || 'Erreur lors de la recherche')
       setResults([])
@@ -328,7 +392,7 @@ export default function RecherchePage() {
         </div>
       )}
 
-      {/* Résultats */}
+      {/* Chargement */}
       {loading && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <Loader2 size={32} className="animate-spin mb-3" />
@@ -336,6 +400,7 @@ export default function RecherchePage() {
         </div>
       )}
 
+      {/* Aucun résultat */}
       {!loading && searched && results.length === 0 && !error && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <Building2 size={40} className="mb-3 opacity-40" />
@@ -344,24 +409,26 @@ export default function RecherchePage() {
         </div>
       )}
 
+      {/* Résultats */}
       {!loading && results.length > 0 && (
         <>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500">
-              <span className="font-semibold text-gray-900">{results.length}</span> résultat(s)
-              {total > results.length && <span className="text-gray-400"> sur {total.toLocaleString('fr-FR')}</span>}
-            </p>
-          </div>
+          {/* Liste de sélection si plusieurs résultats */}
+          {results.length > 1 && (
+            <ResultPickList
+              results={results}
+              total={total}
+              selected={selected}
+              onSelect={setSelected}
+            />
+          )}
 
-          <div className="space-y-5">
-            {results.map(company => (
-              <CompanyCard
-                key={company.siren}
-                company={company}
-                onImport={setImportTarget}
-              />
-            ))}
-          </div>
+          {/* Détail de l'entreprise sélectionnée */}
+          {selected && (
+            <CompanyCard
+              company={selected}
+              onImport={setImportTarget}
+            />
+          )}
         </>
       )}
 

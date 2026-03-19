@@ -27,6 +27,7 @@ function TypeBadge({ type }: { type: string }) {
   const cfg: Record<string, string> = {
     cyber: 'bg-blue-100 text-blue-800',
     ia:    'bg-violet-100 text-violet-800',
+    rgpd:  'bg-sky-100 text-sky-800',
   }
   return (
     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${cfg[type] ?? 'bg-gray-100 text-gray-600'}`}>

@@ -561,7 +561,7 @@ export interface DiagnosticItem {
   id: number
   client_id: number
   client_name?: string
-  type: 'cyber' | 'ia'
+  type: 'cyber' | 'ia' | 'rgpd'
   title: string
   status: 'en_cours' | 'termine'
   share_token: string
@@ -587,7 +587,7 @@ export interface DiagnosticSectionResult {
 
 export interface DiagnosticCreate {
   client_id: number
-  type: 'cyber' | 'ia'
+  type: 'cyber' | 'ia' | 'rgpd'
   title: string
   company_info?: Record<string, any>
 }

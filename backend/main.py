@@ -959,6 +959,7 @@ def update_pipeline_stage(client_id: int, data: PipelineUpdate, db = Depends(get
 class DiagnosticType(str, Enum):
     cyber = "cyber"
     ia = "ia"
+    rgpd = "rgpd"
 
 
 class DiagnosticStatus(str, Enum):
