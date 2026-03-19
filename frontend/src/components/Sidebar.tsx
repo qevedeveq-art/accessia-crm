@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
   Users,
@@ -10,23 +11,44 @@ import {
   Folder,
   CreditCard,
   ClipboardCheck,
-  Settings,
   ChevronRight,
+  FlaskConical,
+  X,
 } from 'lucide-react'
 import { clsx } from 'clsx'
+import { isDemoMode, enableDemoMode, disableDemoMode, DEMO_KEY } from '@/lib/api'
 
 const nav = [
-  { href: '/',          label: 'Dashboard',   icon: LayoutDashboard },
-  { href: '/clients',   label: 'Clients',     icon: Users },
-  { href: '/projects',  label: 'Projets',     icon: FolderKanban },
-  { href: '/finances',  label: 'Finances',    icon: CreditCard },
-  { href: '/diagnostics', label: 'Diagnostics', icon: ClipboardCheck },
-  { href: '/files',     label: 'Fichiers',    icon: Folder },
-  { href: '/crm',       label: 'CRM',icon: FileText },
+  { href: '/',            label: 'Dashboard',    icon: LayoutDashboard },
+  { href: '/clients',     label: 'Clients',      icon: Users },
+  { href: '/projects',    label: 'Projets',      icon: FolderKanban },
+  { href: '/finances',    label: 'Finances',     icon: CreditCard },
+  { href: '/diagnostics', label: 'Diagnostics',  icon: ClipboardCheck },
+  { href: '/files',       label: 'Fichiers',     icon: Folder },
+  { href: '/crm',         label: 'CRM',          icon: FileText },
 ]
 
 export default function Sidebar() {
   const path = usePathname()
+  const [demo, setDemo] = useState(false)
+
+  useEffect(() => {
+    setDemo(isDemoMode())
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === DEMO_KEY) setDemo(e.newValue === '1')
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  const toggleDemo = () => {
+    if (demo) {
+      disableDemoMode()
+    } else {
+      enableDemoMode()
+    }
+    window.location.reload()
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 w-[var(--sidebar-width)] bg-sensia-950 text-white flex flex-col z-40">
@@ -64,6 +86,29 @@ export default function Sidebar() {
             </Link>
           )
         })}
+
+        {/* Séparateur */}
+        <div className="mx-4 my-3 border-t border-sensia-800" />
+
+        {/* Bouton Demo */}
+        <button
+          onClick={toggleDemo}
+          className={clsx(
+            'w-full flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm transition-colors text-left',
+            demo
+              ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
+              : 'text-sensia-300 hover:bg-sensia-800 hover:text-white'
+          )}
+          style={{ width: 'calc(100% - 1rem)' }}
+        >
+          {demo ? <X size={16} className="shrink-0" /> : <FlaskConical size={16} className="shrink-0" />}
+          <span>{demo ? 'Quitter la démo' : 'Mode démo'}</span>
+          {demo && (
+            <span className="ml-auto text-[10px] font-semibold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded">
+              DEMO
+            </span>
+          )}
+        </button>
       </nav>
 
       {/* Footer */}

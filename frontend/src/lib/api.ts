@@ -1,5 +1,25 @@
+import {
+  DEMO_DASHBOARD, DEMO_CLIENTS, DEMO_CLIENT_DETAILS, DEMO_PROJECTS,
+  DEMO_INVOICES, DEMO_ACTIVITIES, DEMO_TASKS, DEMO_DIAGNOSTICS, DEMO_PIPELINE,
+} from './demo-data'
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 const BASE = `${API_URL}/api`
+
+// ─── MODE DÉMO ───────────────────────────────────────────────
+
+export const DEMO_KEY = 'sensia_demo'
+
+export const isDemoMode = (): boolean =>
+  typeof window !== 'undefined' && localStorage.getItem(DEMO_KEY) === '1'
+
+export const enableDemoMode = () => {
+  if (typeof window !== 'undefined') localStorage.setItem(DEMO_KEY, '1')
+}
+
+export const disableDemoMode = () => {
+  if (typeof window !== 'undefined') localStorage.removeItem(DEMO_KEY)
+}
 
 function buildQuery(params?: Record<string, any>): string {
   if (!params) return ''
@@ -29,132 +49,251 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ─── DASHBOARD ───────────────────────────────────────────────
 
-export const getDashboard = () => request<DashboardData>('/dashboard')
+export const getDashboard = () =>
+  isDemoMode() ? Promise.resolve(DEMO_DASHBOARD) : request<DashboardData>('/dashboard')
 
 // ─── CLIENTS ─────────────────────────────────────────────────
 
-export const getClients = (params?: { status?: string; search?: string }) =>
-  request<Client[]>(`/clients${buildQuery(params)}`)
+export const getClients = (params?: { status?: string; search?: string }) => {
+  if (isDemoMode()) {
+    let list = [...DEMO_CLIENTS]
+    if (params?.status) list = list.filter(c => c.status === params.status)
+    if (params?.search) {
+      const q = params.search.toLowerCase()
+      list = list.filter(c => c.name.toLowerCase().includes(q) || c.sector?.toLowerCase().includes(q))
+    }
+    return Promise.resolve(list)
+  }
+  return request<Client[]>(`/clients${buildQuery(params)}`)
+}
 
-export const getClient = (id: number) => request<ClientDetail>(`/clients/${id}`)
+export const getClient = (id: number) =>
+  isDemoMode()
+    ? Promise.resolve(DEMO_CLIENT_DETAILS[id] ?? { ...DEMO_CLIENTS.find(c => c.id === id)!, projects: [], contacts: [] } as ClientDetail)
+    : request<ClientDetail>(`/clients/${id}`)
 
 export const createClient = (data: ClientCreate) =>
-  request<Client>('/clients', { method: 'POST', body: JSON.stringify(data) })
+  isDemoMode()
+    ? Promise.resolve({ id: 99, slug: 'demo-new', projects_count: 0, status: 'prospect', type: 'entreprise', ...data } as Client)
+    : request<Client>('/clients', { method: 'POST', body: JSON.stringify(data) })
 
 export const updateClient = (id: number, data: Partial<ClientCreate>) =>
-  request<Client>(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  isDemoMode()
+    ? Promise.resolve({ ...DEMO_CLIENTS.find(c => c.id === id)!, ...data } as Client)
+    : request<Client>(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 
 export const deleteClient = (id: number) =>
-  request<{ message: string }>(`/clients/${id}`, { method: 'DELETE' })
+  isDemoMode()
+    ? Promise.resolve({ message: 'Suppression désactivée en mode démo' })
+    : request<{ message: string }>(`/clients/${id}`, { method: 'DELETE' })
 
 export const createContact = (data: ContactCreate) =>
-  request<{ id: number; name: string }>('/contacts', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+  isDemoMode()
+    ? Promise.resolve({ id: 99, name: data.name })
+    : request<{ id: number; name: string }>('/contacts', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
 
 // ─── PROJETS ─────────────────────────────────────────────────
 
-export const getProjects = (params?: { status?: string; client_id?: number; search?: string }) =>
-  request<Project[]>(`/projects${buildQuery(params)}`)
+export const getProjects = (params?: { status?: string; client_id?: number; search?: string }) => {
+  if (isDemoMode()) {
+    let list = [...DEMO_PROJECTS]
+    if (params?.status) list = list.filter(p => p.status === params.status)
+    if (params?.client_id) list = list.filter(p => p.client_id === params.client_id)
+    if (params?.search) {
+      const q = params.search.toLowerCase()
+      list = list.filter(p => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
+    }
+    return Promise.resolve(list)
+  }
+  return request<Project[]>(`/projects${buildQuery(params)}`)
+}
 
-export const getProject = (id: number) => request<Project>(`/projects/${id}`)
+export const getProject = (id: number) =>
+  isDemoMode()
+    ? Promise.resolve(DEMO_PROJECTS.find(p => p.id === id) ?? DEMO_PROJECTS[0])
+    : request<Project>(`/projects/${id}`)
 
 export const createProject = (data: ProjectCreate) =>
-  request<Project>('/projects', { method: 'POST', body: JSON.stringify(data) })
+  isDemoMode()
+    ? Promise.resolve({ id: 99, code: 'PRJ-DEMO-099', contract_signed: false, gdpr_done: false, phase: 1, status: 'en_cours', type: 'ia', ...data } as Project)
+    : request<Project>('/projects', { method: 'POST', body: JSON.stringify(data) })
 
 export const updateProject = (id: number, data: Partial<ProjectCreate>) =>
-  request<Project>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  isDemoMode()
+    ? Promise.resolve({ ...DEMO_PROJECTS.find(p => p.id === id)!, ...data } as Project)
+    : request<Project>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 
 export const deleteProject = (id: number) =>
-  request<{ message: string }>(`/projects/${id}`, { method: 'DELETE' })
+  isDemoMode()
+    ? Promise.resolve({ message: 'Suppression désactivée en mode démo' })
+    : request<{ message: string }>(`/projects/${id}`, { method: 'DELETE' })
 
 // ─── FACTURES ────────────────────────────────────────────────
 
-export const getInvoices = (params?: { client_id?: number; status?: string }) =>
-  request<Invoice[]>(`/invoices${buildQuery(params)}`)
+export const getInvoices = (params?: { client_id?: number; status?: string }) => {
+  if (isDemoMode()) {
+    let list = [...DEMO_INVOICES]
+    if (params?.client_id) list = list.filter(i => i.client_id === params.client_id)
+    if (params?.status) list = list.filter(i => i.status === params.status)
+    return Promise.resolve(list)
+  }
+  return request<Invoice[]>(`/invoices${buildQuery(params)}`)
+}
 
 export const createInvoice = (data: InvoiceCreate) =>
-  request<{ id: number; number: string }>('/invoices', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+  isDemoMode()
+    ? Promise.resolve({ id: 99, number: 'FAC-DEMO-099' })
+    : request<{ id: number; number: string }>('/invoices', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
 
 export const updateInvoiceStatus = (id: number, status: string) =>
-  request<{ id: number; status: string }>(`/invoices/${id}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  })
+  isDemoMode()
+    ? Promise.resolve({ id, status })
+    : request<{ id: number; status: string }>(`/invoices/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      })
 
 // ─── CRM — PIPELINE ─────────────────────────────────────
 
-export const getPipeline = () => request<Record<string, Client[]>>('/pipeline')
+export const getPipeline = () =>
+  isDemoMode() ? Promise.resolve(DEMO_PIPELINE) : request<Record<string, Client[]>>('/pipeline')
 
 export const updatePipelineStage = (clientId: number, pipeline_stage: string) =>
-  request<{ id: number; pipeline_stage: string }>(`/clients/${clientId}/pipeline`, {
-    method: 'PATCH',
-    body: JSON.stringify({ pipeline_stage }),
-  })
+  isDemoMode()
+    ? Promise.resolve({ id: clientId, pipeline_stage })
+    : request<{ id: number; pipeline_stage: string }>(`/clients/${clientId}/pipeline`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pipeline_stage }),
+      })
 
 // ─── CRM — ACTIVITÉS ────────────────────────────────────
 
-export const getActivities = (params?: { client_id?: number; limit?: number }) =>
-  request<Activity[]>(`/activities${buildQuery(params)}`)
+export const getActivities = (params?: { client_id?: number; limit?: number }) => {
+  if (isDemoMode()) {
+    let list = [...DEMO_ACTIVITIES]
+    if (params?.client_id) list = list.filter(a => a.client_id === params.client_id)
+    if (params?.limit) list = list.slice(0, params.limit)
+    return Promise.resolve(list)
+  }
+  return request<Activity[]>(`/activities${buildQuery(params)}`)
+}
 
 export const createActivity = (data: ActivityCreate) =>
-  request<Activity>('/activities', { method: 'POST', body: JSON.stringify(data) })
+  isDemoMode()
+    ? Promise.resolve({ id: 99, type: 'appel', created_at: new Date().toISOString(), ...data } as Activity)
+    : request<Activity>('/activities', { method: 'POST', body: JSON.stringify(data) })
 
 export const deleteActivity = (id: number) =>
-  request<{ message: string }>(`/activities/${id}`, { method: 'DELETE' })
+  isDemoMode()
+    ? Promise.resolve({ message: 'Suppression désactivée en mode démo' })
+    : request<{ message: string }>(`/activities/${id}`, { method: 'DELETE' })
 
 // ─── CRM — TÂCHES ───────────────────────────────────────
 
-export const getTasks = (params?: { status?: string; client_id?: number }) =>
-  request<Task[]>(`/tasks${buildQuery(params)}`)
+export const getTasks = (params?: { status?: string; client_id?: number }) => {
+  if (isDemoMode()) {
+    let list = [...DEMO_TASKS]
+    if (params?.status) list = list.filter(t => t.status === params.status)
+    if (params?.client_id) list = list.filter(t => t.client_id === params.client_id)
+    return Promise.resolve(list)
+  }
+  return request<Task[]>(`/tasks${buildQuery(params)}`)
+}
 
 export const createTask = (data: TaskCreate) =>
-  request<Task>('/tasks', { method: 'POST', body: JSON.stringify(data) })
+  isDemoMode()
+    ? Promise.resolve({ id: 99, type: 'autre', priority: 'normale', status: 'a_faire', created_at: new Date().toISOString(), ...data } as Task)
+    : request<Task>('/tasks', { method: 'POST', body: JSON.stringify(data) })
 
 export const updateTaskStatus = (id: number, status: string) =>
-  request<Task>(`/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
+  isDemoMode()
+    ? Promise.resolve({ ...DEMO_TASKS.find(t => t.id === id)!, status } as Task)
+    : request<Task>(`/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
 
 export const deleteTask = (id: number) =>
-  request<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' })
+  isDemoMode()
+    ? Promise.resolve({ message: 'Suppression désactivée en mode démo' })
+    : request<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' })
 
 // ─── DIAGNOSTICS ────────────────────────────────────────────
 
-export const getDiagnostics = (params?: { client_id?: number; type?: string; status?: string }) =>
-  request<DiagnosticItem[]>(`/diagnostics${buildQuery(params)}`)
+export const getDiagnostics = (params?: { client_id?: number; type?: string; status?: string }) => {
+  if (isDemoMode()) {
+    let list = [...DEMO_DIAGNOSTICS]
+    if (params?.client_id) list = list.filter(d => d.client_id === params.client_id)
+    if (params?.type) list = list.filter(d => d.type === params.type)
+    if (params?.status) list = list.filter(d => d.status === params.status)
+    return Promise.resolve(list)
+  }
+  return request<DiagnosticItem[]>(`/diagnostics${buildQuery(params)}`)
+}
 
-export const getDiagnostic = (id: number) => request<DiagnosticItem>(`/diagnostics/${id}`)
+export const getDiagnostic = (id: number) =>
+  isDemoMode()
+    ? Promise.resolve(DEMO_DIAGNOSTICS.find(d => d.id === id) ?? DEMO_DIAGNOSTICS[0])
+    : request<DiagnosticItem>(`/diagnostics/${id}`)
 
 export const createDiagnostic = (data: DiagnosticCreate) =>
-  request<DiagnosticItem>('/diagnostics', { method: 'POST', body: JSON.stringify(data) })
+  isDemoMode()
+    ? Promise.resolve({ id: 99, status: 'en_cours', share_token: 'demo-token-new', created_at: new Date().toISOString(), ...data } as DiagnosticItem)
+    : request<DiagnosticItem>('/diagnostics', { method: 'POST', body: JSON.stringify(data) })
 
 export const updateDiagnostic = (id: number, data: DiagnosticUpdateData) =>
-  request<DiagnosticItem>(`/diagnostics/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  isDemoMode()
+    ? Promise.resolve({ ...DEMO_DIAGNOSTICS.find(d => d.id === id)!, ...data } as DiagnosticItem)
+    : request<DiagnosticItem>(`/diagnostics/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 
 export const deleteDiagnostic = (id: number) =>
-  request<{ message: string }>(`/diagnostics/${id}`, { method: 'DELETE' })
+  isDemoMode()
+    ? Promise.resolve({ message: 'Suppression désactivée en mode démo' })
+    : request<{ message: string }>(`/diagnostics/${id}`, { method: 'DELETE' })
 
 export const getSharedDiagnostic = (token: string) =>
-  request<DiagnosticItem>(`/diagnostics/share/${token}`)
+  isDemoMode()
+    ? Promise.resolve(DEMO_DIAGNOSTICS.find(d => d.share_token === token) ?? DEMO_DIAGNOSTICS[0])
+    : request<DiagnosticItem>(`/diagnostics/share/${token}`)
 
 export const getDiagnosticPdfUrl = (id: number) =>
   `${BASE}/diagnostics/${id}/pdf`
 
 export const regenerateShareToken = (id: number) =>
-  request<{ id: number; share_token: string }>(`/diagnostics/${id}/regenerate-token`, { method: 'POST' })
+  isDemoMode()
+    ? Promise.resolve({ id, share_token: 'demo-token-regenerated' })
+    : request<{ id: number; share_token: string }>(`/diagnostics/${id}/regenerate-token`, { method: 'POST' })
 
 // ─── FICHIERS ────────────────────────────────────────────────
 
-export const browseRoot = () => request<FileItem[]>('/files')
+const DEMO_FILES: FileItem[] = [
+  { name: 'Clients', path: 'Clients', is_dir: true, modified: '2026-03-01T10:00:00Z' },
+  { name: 'TechVision SAS', path: 'Clients/TechVision SAS', is_dir: true, modified: '2026-02-15T10:00:00Z' },
+  { name: 'Cabinet Dupont', path: 'Clients/Cabinet Dupont', is_dir: true, modified: '2025-11-20T10:00:00Z' },
+  { name: 'MedConnect', path: 'Clients/MedConnect', is_dir: true, modified: '2026-01-10T10:00:00Z' },
+  { name: 'Projets', path: 'Projets', is_dir: true, modified: '2026-03-10T10:00:00Z' },
+  { name: 'PRJ-2025-001_TechVision_IA', path: 'Projets/PRJ-2025-001', is_dir: true, modified: '2026-03-10T10:00:00Z' },
+  { name: 'PRJ-2025-002_Dupont_Cyber', path: 'Projets/PRJ-2025-002', is_dir: true, modified: '2025-10-15T10:00:00Z' },
+  { name: 'Templates', path: 'Templates', is_dir: true, modified: '2025-08-01T10:00:00Z' },
+  { name: 'Contrat_type_SENSIA_v2.docx', path: 'Templates/Contrat_type_SENSIA_v2.docx', is_dir: false, size: 45200, modified: '2025-08-01T10:00:00Z', extension: 'docx' },
+  { name: 'Proposition_commerciale_IA.pptx', path: 'Templates/Proposition_commerciale_IA.pptx', is_dir: false, size: 2340000, modified: '2025-12-10T10:00:00Z', extension: 'pptx' },
+]
+
+export const browseRoot = () =>
+  isDemoMode() ? Promise.resolve(DEMO_FILES.filter(f => !f.path.includes('/'))) : request<FileItem[]>('/files')
 
 export const browseDir = (path: string) =>
-  request<FileItem[]>(`/files/browse?path=${encodeURIComponent(path)}`)
+  isDemoMode()
+    ? Promise.resolve(DEMO_FILES.filter(f => f.path.startsWith(path + '/') && f.path.split('/').length === path.split('/').length + 1))
+    : request<FileItem[]>(`/files/browse?path=${encodeURIComponent(path)}`)
 
 export const readFile = (path: string) =>
-  request<{ content: string; path: string }>(`/files/read?path=${encodeURIComponent(path)}`)
+  isDemoMode()
+    ? Promise.resolve({ content: `# Fichier de démonstration\n\nCe fichier fait partie des données de démo SENSIA Manager.\n\nChemin : ${path}`, path })
+    : request<{ content: string; path: string }>(`/files/read?path=${encodeURIComponent(path)}`)
 
 // ─── TYPES ───────────────────────────────────────────────────
 
