@@ -340,7 +340,7 @@ export const DEMO_INVOICES: Invoice[] = [
     amount_ht: 11000,
     amount_ttc: 13200,
     tva_rate: 20,
-    status: 'paye',
+    status: 'payee',
     issued_date: '2025-07-15',
     due_date: '2025-08-15',
     paid_date: '2025-08-10',
@@ -356,7 +356,7 @@ export const DEMO_INVOICES: Invoice[] = [
     amount_ht: 11000,
     amount_ttc: 13200,
     tva_rate: 20,
-    status: 'paye',
+    status: 'payee',
     issued_date: '2025-10-20',
     due_date: '2025-11-20',
     paid_date: '2025-11-18',
@@ -372,7 +372,7 @@ export const DEMO_INVOICES: Invoice[] = [
     amount_ht: 25000,
     amount_ttc: 30000,
     tva_rate: 20,
-    status: 'paye',
+    status: 'payee',
     issued_date: '2025-10-05',
     due_date: '2025-11-05',
     paid_date: '2025-11-02',
@@ -388,7 +388,7 @@ export const DEMO_INVOICES: Invoice[] = [
     amount_ht: 6000,
     amount_ttc: 7200,
     tva_rate: 20,
-    status: 'paye',
+    status: 'payee',
     issued_date: '2025-12-05',
     due_date: '2026-01-05',
     paid_date: '2025-12-28',
@@ -404,7 +404,7 @@ export const DEMO_INVOICES: Invoice[] = [
     amount_ht: 16000,
     amount_ttc: 19200,
     tva_rate: 20,
-    status: 'en_attente',
+    status: 'envoyee',
     issued_date: '2026-01-10',
     due_date: '2026-02-10',
     notes: 'Acompte 33% — RGPD MedConnect',
@@ -419,7 +419,7 @@ export const DEMO_INVOICES: Invoice[] = [
     amount_ht: 14000,
     amount_ttc: 16800,
     tva_rate: 20,
-    status: 'en_attente',
+    status: 'envoyee',
     issued_date: '2026-02-01',
     due_date: '2026-03-01',
     notes: 'Jalons 1-2 — Automatisation RH',
@@ -675,6 +675,9 @@ export const DEMO_PIPELINE: Record<string, Client[]> = {
 
 // ─── DASHBOARD ───────────────────────────────────────────────
 
+// ca_total  = invoices payee  : 11000+11000+25000+6000 = 53000 HT
+// ca_pending = invoices envoyee: 16000+14000 = 30000 HT
+// pipeline   = projets en_cours: 85000+48000+12000+35000+28000 = 208000
 export const DEMO_DASHBOARD: DashboardData = {
   kpis: {
     total_clients: 7,
@@ -682,17 +685,20 @@ export const DEMO_DASHBOARD: DashboardData = {
     prospects: 2,
     total_projects: 7,
     active_projects: 5,
-    ca_total: 58000,
-    ca_pending: 40000,
-    pipeline: 168000,
+    ca_total: 53000,
+    ca_pending: 30000,
+    pipeline: 208000,
   },
+  // Format backend : 8 entrées (phases 0-7), only en_cours projects counted
   phase_distribution: [
-    { phase: 2, count: 2 },
-    { phase: 3, count: 1 },
-    { phase: 4, count: 1 },
-    { phase: 5, count: 2 },
-    { phase: 6, count: 1 },
-    { phase: 8, count: 1 },
+    { phase: 0, count: 0 },
+    { phase: 1, count: 0 },
+    { phase: 2, count: 1 }, // PRJ-2025-005 Stratégie Data
+    { phase: 3, count: 1 }, // PRJ-2025-003 RGPD MedConnect
+    { phase: 4, count: 1 }, // PRJ-2025-001 Transformation IA
+    { phase: 5, count: 1 }, // PRJ-2025-006 Automatisation RH
+    { phase: 6, count: 1 }, // PRJ-2025-004 Chatbot IA
+    { phase: 7, count: 0 },
   ],
   recent_projects: DEMO_PROJECTS.slice(0, 5),
   recent_clients: DEMO_CLIENTS.slice(0, 5),
