@@ -8,6 +8,7 @@ import {
 } from '@/lib/api'
 import Link from 'next/link'
 import { ArrowLeft, ExternalLink, Folder, Edit2, Check, X } from 'lucide-react'
+import DiagnosticRecsPanel from '@/components/DiagnosticRecsPanel'
 
 const PHASE_LABELS = [
   'Découverte', 'Diagnostic', 'Proposition', 'Setup RGPD',
@@ -22,7 +23,7 @@ function StatusBadge({ v }: { v: string }) {
   return <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${cls[v] ?? 'bg-gray-100 text-gray-600'}`}>{v.replace('_', ' ')}</span>
 }
 
-type ClientTab = 'infos' | 'timeline'
+type ClientTab = 'infos' | 'diagnostics' | 'timeline'
 
 export default function ClientPage({ params }: { params: { id: string } }) {
   const [client, setClient] = useState<ClientDetail | null>(null)
@@ -120,6 +121,7 @@ export default function ClientPage({ params }: { params: { id: string } }) {
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-6">
         {([
           { key: 'infos' as ClientTab, label: 'Informations' },
+          { key: 'diagnostics' as ClientTab, label: 'Diagnostics' },
           { key: 'timeline' as ClientTab, label: 'Timeline 360°' },
         ]).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -220,6 +222,19 @@ export default function ClientPage({ params }: { params: { id: string } }) {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {tab === 'diagnostics' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-800">Recommandations diagnostics</h2>
+            <Link href={`/diagnostics?client_id=${params.id}`}
+              className="text-xs text-accessia-600 hover:underline">
+              Voir tous les diagnostics →
+            </Link>
+          </div>
+          <DiagnosticRecsPanel clientId={Number(params.id)} />
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { getProject, updateProject, getTimeEntries, createTimeEntry, deleteTimeEntry, Project, TimeEntry, TimeEntryCreate } from '@/lib/api'
 import Link from 'next/link'
 import { ArrowLeft, Edit2, Check, X, ExternalLink, Clock, Trash2, Plus } from 'lucide-react'
+import DiagnosticRecsPanel from '@/components/DiagnosticRecsPanel'
 
 const PHASE_LABELS = [
   'Découverte & Qualification',
@@ -312,6 +313,18 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Recommandations diagnostics */}
+      <div className="mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Recommandations diagnostics</h2>
+          <Link href={`/clients/${project.client_id}`}
+            className="text-xs text-accessia-600 hover:underline">
+            Voir le client →
+          </Link>
+        </div>
+        <DiagnosticRecsPanel clientId={project.client_id} />
       </div>
     </div>
   )
