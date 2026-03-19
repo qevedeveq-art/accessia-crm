@@ -1829,11 +1829,11 @@ def _compute_grants(company: dict) -> list:
     if not has_region:
         region_missing.append("Région non identifiée")
     region_missing.append("Taux variable selon région (30–50%)")
-    region_missing.append("Contacter votre DREETS régionale")
+    region_missing.append("Contacter votre Conseil Régional")
 
     grants.append({
         "id": "aide_regionale",
-        "name": "Aide régionale — DREETS / Conseil Régional",
+        "name": "Aide régionale — Conseil Régional",
         "description": "Subventions régionales pour la transformation numérique et IA des PME",
         "eligible": has_region and is_pme,
         "confidence": "low",
@@ -1841,8 +1841,66 @@ def _compute_grants(company: dict) -> list:
         "amount_max": 0,
         "conditions_ok": region_ok_list,
         "conditions_missing": region_missing,
-        "url": "https://les-aides.fr/organismes/IA/dreets.html",
+        "url": "https://www.regions-de-france.eu",
         "deadline": None,
+    })
+
+    # ── Chèque France Num ─────────────────────────────────────
+    # Aide au numérique pour TPE/PME : 500€ de chèque numérique (cofinancement 50%)
+    cheque_ok = is_pme and has_employees
+    cheque_ok_list = []
+    cheque_missing = []
+    if is_pme:
+        cheque_ok_list.append(f"TPE/PME éligible ({categorie or 'taille compatible'})")
+    else:
+        cheque_missing.append(f"Réservé aux TPE/PME — catégorie : {categorie}")
+    if has_employees:
+        cheque_ok_list.append("Entreprise avec salariés")
+    else:
+        cheque_missing.append("Statut salarié à vérifier")
+    cheque_missing.append("Prestataire labelisé France Num requis")
+
+    grants.append({
+        "id": "cheque_france_num",
+        "name": "Chèque France Num",
+        "description": "500€ de cofinancement pour démarrer votre transformation numérique avec un prestataire labelisé",
+        "eligible": cheque_ok,
+        "confidence": "high" if cheque_ok else "low",
+        "amount_label": "500€ (50% du projet, max 1 000€ HT)",
+        "amount_max": 500,
+        "conditions_ok": cheque_ok_list,
+        "conditions_missing": cheque_missing,
+        "url": "https://www.francenum.gouv.fr/cheque-numerique",
+        "deadline": "Dispositif actif — dossier en ligne",
+    })
+
+    # ── CIR — Crédit d'Impôt Recherche ───────────────────────
+    # 30% des dépenses R&D déductibles, plafonné à 100M€
+    # Applicable aux secteurs tech/R&D/industrie
+    naf_prefix = naf_code[:2] if naf_code else ""
+    is_rd_sector = naf_prefix in ("62", "63", "72", "26", "21", "20", "28", "29", "30", "71", "70")
+    cir_ok = is_rd_sector  # accessible à toutes tailles mais pertinent pour tech/R&D
+    cir_ok_list = []
+    cir_missing = []
+    if is_rd_sector:
+        cir_ok_list.append(f"Secteur R&D/Tech éligible ({_naf_sector_label(naf_code)})")
+    else:
+        cir_missing.append(f"Secteur peu concerné ({_naf_sector_label(naf_code) if naf_code else 'non renseigné'})")
+    cir_missing.append("Dépenses R&D à documenter (chercheurs, prototypes)")
+    cir_missing.append("Déclaration 2069-A-SD à joindre à la liasse fiscale")
+
+    grants.append({
+        "id": "cir",
+        "name": "CIR — Crédit d'Impôt Recherche",
+        "description": "30% des dépenses de R&D déductibles de l'IS — applicable projets IA si recherche documentée",
+        "eligible": cir_ok,
+        "confidence": "medium" if cir_ok else "low",
+        "amount_label": "30% des dépenses R&D (plafond 100M€)",
+        "amount_max": 0,
+        "conditions_ok": cir_ok_list,
+        "conditions_missing": cir_missing,
+        "url": "https://www.enseignementsup-recherche.gouv.fr/fr/le-credit-d-impot-recherche-cir-46649",
+        "deadline": "Valable jusqu'au 31 décembre 2027",
     })
 
     return grants
@@ -1899,11 +1957,20 @@ def _normalize_company(r: dict) -> dict:
 @app.get("/api/search-company")
 def search_company(q: str = Query(..., min_length=2)):
     """Recherche une entreprise française par nom, SIREN ou SIRET via l'API officielle."""
+    import re
+    q_clean = q.strip().replace(" ", "").replace("-", "")
+    # Auto-détection SIREN (9 chiffres) ou SIRET (14 chiffres) pour recherche exacte
+    if re.fullmatch(r"\d{9}", q_clean):
+        search_q = q_clean  # SIREN exact
+    elif re.fullmatch(r"\d{14}", q_clean):
+        search_q = q_clean  # SIRET exact
+    else:
+        search_q = q.strip()
     try:
-        with httpx.Client(timeout=8) as client:
+        with httpx.Client(timeout=10) as client:
             resp = client.get(
                 "https://recherche-entreprises.api.gouv.fr/search",
-                params={"q": q, "per_page": 5, "page": 1},
+                params={"q": search_q, "per_page": 10, "page": 1},
                 headers={"User-Agent": "ACCESSIA-Pro/1.0"},
             )
             resp.raise_for_status()

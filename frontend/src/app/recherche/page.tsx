@@ -1,10 +1,22 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { searchCompany, CompanySearchResult, GrantInfo, ClientCreate } from '@/lib/api'
-import { Search, Building2, MapPin, Users, Calendar, CheckCircle2, XCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, ChevronRight, Plus, Loader2, Euro } from 'lucide-react'
+import { Search, Building2, MapPin, Users, Calendar, CheckCircle2, XCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, ChevronRight, Plus, Loader2, Euro, Clock, Stethoscope, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+
+const HISTORY_KEY = 'accessia_search_history'
+const MAX_HISTORY = 6
+
+function getHistory(): string[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') } catch { return [] }
+}
+function addToHistory(q: string) {
+  const h = getHistory().filter(x => x !== q)
+  localStorage.setItem(HISTORY_KEY, JSON.stringify([q, ...h].slice(0, MAX_HISTORY)))
+}
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -19,6 +31,11 @@ function totalEligible(grants: GrantInfo[]) {
 
 function totalEstimated(grants: GrantInfo[]) {
   return grants.filter(g => g.eligible).reduce((s, g) => s + (g.amount_max || 0), 0)
+}
+
+// Grants with % coverage (no fixed amount_max) but still show as eligible
+function hasPercentGrants(grants: GrantInfo[]) {
+  return grants.filter(g => g.eligible && g.amount_max === 0).length > 0
 }
 
 // ─── Grant Card ───────────────────────────────────────────────
@@ -154,28 +171,53 @@ function CompanyCard({
         )}
 
         {/* Résumé aides */}
-        <div className="bg-accessia-50 border border-accessia-100 rounded-xl px-3 py-2.5 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-accessia-500">Aides IA éligibles</p>
-            <p className="text-lg font-bold text-accessia-700">{eligible} / {company.grants.length}</p>
-          </div>
-          {estimated > 0 && (
-            <div className="text-right">
-              <p className="text-xs text-accessia-500">Estimation min.</p>
-              <p className="text-lg font-bold text-accessia-700 flex items-center gap-0.5">
-                <Euro size={14} />
-                {estimated.toLocaleString('fr-FR')}
-              </p>
+        <div className="bg-accessia-50 border border-accessia-100 rounded-xl px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-accessia-500">Aides IA éligibles</p>
+              <p className="text-lg font-bold text-accessia-700">{eligible} / {company.grants.length}</p>
             </div>
+            <div className="text-right">
+              {estimated > 0 ? (
+                <>
+                  <p className="text-xs text-accessia-500">Économies directes min.</p>
+                  <p className="text-lg font-bold text-accessia-700 flex items-center gap-0.5 justify-end">
+                    <Euro size={14} />
+                    {estimated.toLocaleString('fr-FR')}
+                  </p>
+                </>
+              ) : eligible > 0 && (
+                <>
+                  <p className="text-xs text-accessia-500">Financement %</p>
+                  <p className="text-sm font-bold text-accessia-700 flex items-center gap-1 justify-end">
+                    <TrendingUp size={13} /> Jusqu'à 80%
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+          {hasPercentGrants(company.grants) && (
+            <p className="text-[10px] text-accessia-400 mt-1.5 flex items-center gap-1">
+              <AlertCircle size={9} /> + aides en % du projet (IA Booster, CIR, régional) non incluses dans le montant
+            </p>
           )}
         </div>
 
-        <button
-          onClick={() => onImport(company)}
-          className="w-full flex items-center justify-center gap-2 bg-accessia-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-accessia-700 transition-colors"
-        >
-          <Plus size={15} /> Créer comme client
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onImport(company)}
+            className="flex-1 flex items-center justify-center gap-2 bg-accessia-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-accessia-700 transition-colors"
+          >
+            <Plus size={15} /> Créer comme client
+          </button>
+          <Link
+            href={`/diagnostics?new=ia&company=${encodeURIComponent(company.name)}`}
+            className="flex items-center justify-center gap-1.5 border border-accessia-300 text-accessia-700 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-accessia-50 transition-colors shrink-0"
+            title="Lancer un diagnostic IA"
+          >
+            <Stethoscope size={15} /> Diagnostiquer
+          </Link>
+        </div>
       </div>
 
       {/* Colonne droite — aides */}
@@ -316,7 +358,11 @@ export default function RecherchePage() {
   const [searched, setSearched] = useState(false)
   const [selected, setSelected] = useState<CompanySearchResult | null>(null)
   const [importTarget, setImportTarget] = useState<CompanySearchResult | null>(null)
+  const [history, setHistory] = useState<string[]>([])
+  const [showHistory, setShowHistory] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setHistory(getHistory()) }, [])
 
   const doSearch = async (q: string) => {
     if (!q.trim() || q.trim().length < 2) return
@@ -324,12 +370,14 @@ export default function RecherchePage() {
     setError('')
     setSearched(true)
     setSelected(null)
+    setShowHistory(false)
     try {
       const data = await searchCompany(q.trim())
       setResults(data.results)
       setTotal(data.total)
-      // Sélection automatique si un seul résultat
       if (data.results.length === 1) setSelected(data.results[0])
+      addToHistory(q.trim())
+      setHistory(getHistory())
     } catch (e: any) {
       setError(e.message || 'Erreur lors de la recherche')
       setResults([])
@@ -340,7 +388,13 @@ export default function RecherchePage() {
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') doSearch(query)
+    if (e.key === 'Escape') setShowHistory(false)
   }
+
+  // Detect if query looks like SIREN/SIRET for hint
+  const cleanQ = query.replace(/[\s-]/g, '')
+  const isSiren = /^\d{9}$/.test(cleanQ)
+  const isSiret = /^\d{14}$/.test(cleanQ)
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -348,24 +402,44 @@ export default function RecherchePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Prospection IA</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Recherchez une entreprise pour estimer ses aides IA disponibles (BPI, CII, OPCO, régionales)
+          Recherchez une entreprise pour estimer ses aides IA disponibles (BPI France, France Num, CIR, OPCO, régionales)
         </p>
       </div>
 
       {/* Barre de recherche */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
-        <div className="flex gap-3">
+        <div className="flex gap-3 relative">
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               ref={inputRef}
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKey}
+              onFocus={() => history.length > 0 && setShowHistory(true)}
+              onBlur={() => setTimeout(() => setShowHistory(false), 150)}
               placeholder="Nom d'entreprise, SIREN (9 chiffres) ou SIRET (14 chiffres)…"
               className="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 focus:border-accessia-400 outline-none transition-all"
               autoFocus
             />
+            {/* Dropdown historique */}
+            {showHistory && history.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100 flex items-center gap-1">
+                  <Clock size={9} /> Recherches récentes
+                </p>
+                {history.map(h => (
+                  <button
+                    key={h}
+                    onMouseDown={() => { setQuery(h); doSearch(h) }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-accessia-50 transition-colors"
+                  >
+                    <Clock size={12} className="text-gray-300 shrink-0" />
+                    <span className="text-gray-700">{h}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <button
             onClick={() => doSearch(query)}
@@ -377,11 +451,18 @@ export default function RecherchePage() {
           </button>
         </div>
 
-        <p className="text-xs text-gray-400 mt-2.5">
-          Données officielles via{' '}
-          <span className="font-medium text-gray-500">recherche-entreprises.api.gouv.fr</span>
-          {' '}(INSEE · INPI · BODACC)
-        </p>
+        <div className="flex items-center justify-between mt-2.5">
+          <p className="text-xs text-gray-400">
+            Données officielles via{' '}
+            <span className="font-medium text-gray-500">recherche-entreprises.api.gouv.fr</span>
+            {' '}(INSEE · INPI · BODACC)
+          </p>
+          {(isSiren || isSiret) && (
+            <span className="text-[10px] font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded">
+              {isSiren ? 'SIREN détecté — recherche exacte' : 'SIRET détecté — recherche exacte'}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Erreur */}
@@ -434,19 +515,40 @@ export default function RecherchePage() {
 
       {/* État initial */}
       {!loading && !searched && (
-        <div className="grid sm:grid-cols-3 gap-4 mt-4">
-          {[
-            { icon: '🏢', title: 'Données officielles', desc: 'INSEE, INPI, BODACC — registre national des entreprises en temps réel' },
-            { icon: '💰', title: 'Aides IA calculées', desc: 'BPI France, CII, OPCO, aides régionales — éligibilité calculée automatiquement' },
-            { icon: '🚀', title: 'Import en 1 clic', desc: 'Créez la fiche client pré-remplie avec les données officielles' },
-          ].map(card => (
-            <div key={card.title} className="bg-white rounded-xl border border-gray-100 p-4 text-center">
-              <div className="text-3xl mb-2">{card.icon}</div>
-              <p className="text-sm font-semibold text-gray-800">{card.title}</p>
-              <p className="text-xs text-gray-400 mt-1">{card.desc}</p>
+        <>
+          <div className="grid sm:grid-cols-3 gap-4 mt-4">
+            {[
+              { icon: '🏢', title: 'Données officielles', desc: 'INSEE, INPI, BODACC — registre national des entreprises en temps réel' },
+              { icon: '💰', title: '7 aides IA calculées', desc: 'BPI France, France Num, CIR, OPCO, régionales — éligibilité automatique' },
+              { icon: '🚀', title: 'Import + Diagnostic', desc: 'Créez la fiche client pré-remplie et lancez un diagnostic IA en 1 clic' },
+            ].map(card => (
+              <div key={card.title} className="bg-white rounded-xl border border-gray-100 p-4 text-center">
+                <div className="text-3xl mb-2">{card.icon}</div>
+                <p className="text-sm font-semibold text-gray-800">{card.title}</p>
+                <p className="text-xs text-gray-400 mt-1">{card.desc}</p>
+              </div>
+            ))}
+          </div>
+          {history.length > 0 && (
+            <div className="mt-5">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                <Clock size={11} /> Recherches récentes
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {history.map(h => (
+                  <button
+                    key={h}
+                    onClick={() => { setQuery(h); doSearch(h) }}
+                    className="flex items-center gap-1.5 text-sm bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-full hover:border-accessia-300 hover:text-accessia-700 transition-colors"
+                  >
+                    <Clock size={11} className="text-gray-300" />
+                    {h}
+                  </button>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Modal import */}
