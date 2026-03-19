@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   getPipeline, updatePipelineStage, getActivities, createActivity,
   getTasks, createTask, updateTaskStatus, deleteTask, deleteActivity,
-  getClients, Client, Activity, Task, ActivityCreate, TaskCreate,
+  getClients, getInvoices, Client, Activity, Task, Invoice, ActivityCreate, TaskCreate,
 } from '@/lib/api'
 import Link from 'next/link'
 import {
@@ -37,7 +37,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgente: 'bg-red-100 text-red-700',
 }
 
-type Tab = 'pipeline' | 'activities' | 'tasks'
+type Tab = 'pipeline' | 'activities' | 'tasks' | 'relances'
 
 // ─── COMPOSANT PRINCIPAL ─────────────────────────────────
 
@@ -98,11 +98,11 @@ export default function CrmPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowActivity(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-sensia-600 border border-sensia-200 rounded-lg hover:bg-sensia-50">
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-accessia-600 border border-accessia-200 rounded-lg hover:bg-accessia-50">
             <Plus size={14} /> Activité
           </button>
           <button onClick={() => setShowTask(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-sensia-600 text-white rounded-lg hover:bg-sensia-700">
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-accessia-600 text-white rounded-lg hover:bg-accessia-700">
             <Plus size={14} /> Tâche
           </button>
         </div>
@@ -116,12 +116,13 @@ export default function CrmPage() {
           { key: 'pipeline' as Tab, label: 'Pipeline', count: clients.length },
           { key: 'activities' as Tab, label: 'Activités', count: activities.length },
           { key: 'tasks' as Tab, label: 'Tâches', count: pendingTasks.length },
+          { key: 'relances' as Tab, label: 'Relances', count: null },
         ]).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
               tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}>
-            {t.label} <span className="ml-1 text-xs text-gray-400">{t.count}</span>
+            {t.label} {t.count !== null && <span className="ml-1 text-xs text-gray-400">{t.count}</span>}
           </button>
         ))}
       </div>
@@ -175,7 +176,7 @@ export default function CrmPage() {
             <div className="text-center py-16 text-gray-400">
               <StickyNote size={40} className="mx-auto mb-3 opacity-40" />
               <p>Aucune activité enregistrée</p>
-              <button onClick={() => setShowActivity(true)} className="mt-3 text-sm text-sensia-600 hover:underline">
+              <button onClick={() => setShowActivity(true)} className="mt-3 text-sm text-accessia-600 hover:underline">
                 Ajouter une activité
               </button>
             </div>
@@ -284,6 +285,9 @@ export default function CrmPage() {
         </div>
       )}
 
+      {/* Relances */}
+      {tab === 'relances' && <RelancesTab />}
+
       {/* Modal: Nouvelle Activité */}
       {showActivity && (
         <ActivityModal clients={clients} onClose={() => setShowActivity(false)} onSave={() => { setShowActivity(false); loadAll() }} />
@@ -293,6 +297,190 @@ export default function CrmPage() {
       {showTask && (
         <TaskModal clients={clients} onClose={() => setShowTask(false)} onSave={() => { setShowTask(false); loadAll() }} />
       )}
+    </div>
+  )
+}
+
+// ─── ONGLET RELANCES ─────────────────────────────────────
+
+function RelancesTab() {
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [pipeline, setPipeline] = useState<Record<string, import('@/lib/api').Client[]>>({})
+  const [loading, setLoading] = useState(true)
+  const [confirmations, setConfirmations] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      const [inv, t, p] = await Promise.all([
+        getInvoices({ status: 'envoyee' }).catch(() => []),
+        getTasks().catch(() => []),
+        getPipeline().catch(() => ({})),
+      ])
+      setInvoices(inv)
+      setTasks(t)
+      setPipeline(p)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const confirm = (key: string, msg: string) => {
+    setConfirmations(prev => ({ ...prev, [key]: msg }))
+    setTimeout(() => setConfirmations(prev => { const next = { ...prev }; delete next[key]; return next }), 3000)
+  }
+
+  if (loading) return <div className="py-12 text-center text-gray-400 animate-pulse text-sm">Chargement des relances…</div>
+
+  const now = new Date()
+  const daysAgo = (dateStr: string) => Math.floor((now.getTime() - new Date(dateStr).getTime()) / 86400000)
+
+  // Section 1: Factures impayées
+  const overdueInvoices = invoices.filter(inv => inv.due_date && new Date(inv.due_date) < now)
+
+  // Section 2: Tâches en retard
+  const overdueTasks = tasks.filter(t => t.status !== 'fait' && t.due_date && new Date(t.due_date) < now)
+
+  // Section 3: Leads silencieux
+  const silentStages = ['gagne', 'perdu']
+  const silentLeads = Object.entries(pipeline)
+    .filter(([stage]) => !silentStages.includes(stage))
+    .flatMap(([, clients]) => clients)
+
+  return (
+    <div className="space-y-6">
+      {/* Section 1: Factures impayées */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+          <AlertTriangle size={15} className="text-red-500" />
+          <h3 className="text-sm font-semibold text-gray-700">Factures impayées ({overdueInvoices.length})</h3>
+        </div>
+        {overdueInvoices.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-gray-400">Aucune facture en retard</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {overdueInvoices.map(inv => {
+              const days = daysAgo(inv.due_date!)
+              const key = `inv-${inv.id}`
+              return (
+                <div key={inv.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{inv.client_name || `Client #${inv.client_id}`}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-400">
+                      <span>{inv.number}</span>
+                      <span>·</span>
+                      <span className="font-medium text-gray-700">{inv.amount_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                      <span>·</span>
+                      <span className="text-red-500 font-medium">{days} jour{days > 1 ? 's' : ''} de retard</span>
+                    </div>
+                  </div>
+                  {confirmations[key] ? (
+                    <span className="text-xs text-green-600 font-medium">{confirmations[key]}</span>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        await createActivity({ client_id: inv.client_id, type: 'email', title: `Relance ${inv.number}`, date: new Date().toISOString() })
+                        confirm(key, 'Relance enregistrée')
+                      }}
+                      className="shrink-0 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 hover:border-gray-300">
+                      Enregistrer relance
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Section 2: Tâches en retard */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+          <Clock size={15} className="text-orange-500" />
+          <h3 className="text-sm font-semibold text-gray-700">Tâches en retard ({overdueTasks.length})</h3>
+        </div>
+        {overdueTasks.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-gray-400">Aucune tâche en retard</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {overdueTasks.map(t => {
+              const days = daysAgo(t.due_date!)
+              const key = `task-${t.id}`
+              return (
+                <div key={t.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{t.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-400">
+                      {t.client_id && <span>Client #{t.client_id}</span>}
+                      {t.client_id && <span>·</span>}
+                      <span className={`px-1.5 py-0.5 rounded font-medium ${PRIORITY_COLORS[t.priority] || PRIORITY_COLORS.normal}`}>{t.priority}</span>
+                      <span>·</span>
+                      <span className="text-orange-500 font-medium">{days} jour{days > 1 ? 's' : ''} de retard</span>
+                    </div>
+                  </div>
+                  {confirmations[key] ? (
+                    <span className="text-xs text-green-600 font-medium">{confirmations[key]}</span>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        await updateTaskStatus(t.id, 'fait')
+                        setTasks(prev => prev.filter(task => task.id !== t.id))
+                        confirm(key, 'Marquée comme faite')
+                      }}
+                      className="shrink-0 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 hover:border-gray-300">
+                      Marquer fait
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Section 3: Leads silencieux */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+          <StickyNote size={15} className="text-violet-500" />
+          <h3 className="text-sm font-semibold text-gray-700">Leads silencieux ({silentLeads.length})</h3>
+        </div>
+        {silentLeads.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-gray-400">Aucun lead silencieux</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {silentLeads.map(c => {
+              const key = `lead-${c.id}`
+              const stageLabel = STAGES.find(s => s.key === c.pipeline_stage)?.label || c.pipeline_stage || '—'
+              const dueDate = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10)
+              return (
+                <div key={c.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{c.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-400">
+                      <span>{stageLabel}</span>
+                      <span>·</span>
+                      <span>Dernier contact : inconnu</span>
+                    </div>
+                  </div>
+                  {confirmations[key] ? (
+                    <span className="text-xs text-green-600 font-medium">{confirmations[key]}</span>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        await createTask({ client_id: c.id, title: `Reprendre contact avec ${c.name}`, type: 'relance', due_date: dueDate })
+                        confirm(key, 'Contact programmé')
+                      }}
+                      className="shrink-0 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 hover:border-gray-300">
+                      Programmer contact
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -329,7 +517,7 @@ function ActivityModal({ clients, onClose, onSave }: { clients: Client[]; onClos
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
             <select value={form.client_id} onChange={e => set('client_id', Number(e.target.value))}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
               <option value={0}>— Sélectionner —</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -341,7 +529,7 @@ function ActivityModal({ clients, onClose, onSave }: { clients: Client[]; onClos
               {ACTIVITY_TYPES.map(t => (
                 <button key={t.key} onClick={() => set('type', t.key)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                    form.type === t.key ? 'border-sensia-300 bg-sensia-50 text-sensia-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    form.type === t.key ? 'border-accessia-300 bg-accessia-50 text-accessia-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}>
                   <t.icon size={13} /> {t.label}
                 </button>
@@ -352,14 +540,14 @@ function ActivityModal({ clients, onClose, onSave }: { clients: Client[]; onClos
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
             <input value={form.title} onChange={e => set('title', e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
               placeholder="Ex: Appel de suivi proposition" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea value={form.description || ''} onChange={e => set('description', e.target.value)} rows={2}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none resize-none"
               placeholder="Résumé de l'échange…" />
           </div>
 
@@ -367,12 +555,12 @@ function ActivityModal({ clients, onClose, onSave }: { clients: Client[]; onClos
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
               <input type="datetime-local" value={form.date?.slice(0, 16) || ''} onChange={e => set('date', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Durée (min)</label>
               <input type="number" value={form.duration_minutes || ''} onChange={e => set('duration_minutes', Number(e.target.value))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
                 placeholder="30" />
             </div>
           </div>
@@ -380,7 +568,7 @@ function ActivityModal({ clients, onClose, onSave }: { clients: Client[]; onClos
         <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Annuler</button>
           <button onClick={submit} disabled={saving}
-            className="px-5 py-2 bg-sensia-600 text-white rounded-lg text-sm font-medium hover:bg-sensia-700 disabled:opacity-60">
+            className="px-5 py-2 bg-accessia-600 text-white rounded-lg text-sm font-medium hover:bg-accessia-700 disabled:opacity-60">
             {saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
@@ -420,14 +608,14 @@ function TaskModal({ clients, onClose, onSave }: { clients: Client[]; onClose: (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
             <input value={form.title} onChange={e => set('title', e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
               placeholder="Ex: Relancer TechCorp pour proposition" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Client (optionnel)</label>
             <select value={form.client_id || 0} onChange={e => set('client_id', Number(e.target.value) || undefined)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
               <option value={0}>— Aucun —</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -437,7 +625,7 @@ function TaskModal({ clients, onClose, onSave }: { clients: Client[]; onClose: (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
               <select value={form.type} onChange={e => set('type', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
                 <option value="relance">Relance</option>
                 <option value="rappel">Rappel</option>
                 <option value="tache">Tâche</option>
@@ -447,7 +635,7 @@ function TaskModal({ clients, onClose, onSave }: { clients: Client[]; onClose: (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Priorité</label>
               <select value={form.priority} onChange={e => set('priority', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
                 <option value="basse">Basse</option>
                 <option value="normal">Normale</option>
                 <option value="haute">Haute</option>
@@ -459,20 +647,20 @@ function TaskModal({ clients, onClose, onSave }: { clients: Client[]; onClose: (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Échéance</label>
             <input type="date" value={form.due_date?.slice(0, 10) || ''} onChange={e => set('due_date', e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea value={form.description || ''} onChange={e => set('description', e.target.value)} rows={2}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none resize-none"
               placeholder="Détails supplémentaires…" />
           </div>
         </div>
         <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Annuler</button>
           <button onClick={submit} disabled={saving}
-            className="px-5 py-2 bg-sensia-600 text-white rounded-lg text-sm font-medium hover:bg-sensia-700 disabled:opacity-60">
+            className="px-5 py-2 bg-accessia-600 text-white rounded-lg text-sm font-medium hover:bg-accessia-700 disabled:opacity-60">
             {saving ? 'Création…' : 'Créer la tâche'}
           </button>
         </div>

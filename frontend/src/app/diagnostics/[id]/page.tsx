@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   getDiagnostic, updateDiagnostic, getDiagnosticPdfUrl,
-  regenerateShareToken, DiagnosticItem,
+  regenerateShareToken, DiagnosticItem, createTask,
 } from '@/lib/api'
 import Link from 'next/link'
 import {
@@ -382,6 +382,10 @@ export default function DiagnosticDetailPage() {
   const [copied, setCopied] = useState(false)
   const [companyInfo, setCompanyInfo] = useState({ name: '', sector: '', employees: '', contact: '' })
   const reportRef = useRef<HTMLDivElement>(null)
+  const [showActionPlan, setShowActionPlan] = useState(false)
+  const [selectedRecs, setSelectedRecs] = useState<Record<string, boolean>>({})
+  const [creatingPlan, setCreatingPlan] = useState(false)
+  const [planCreated, setPlanCreated] = useState(false)
 
   useEffect(() => {
     getDiagnostic(id).then(d => {
@@ -434,6 +438,31 @@ export default function DiagnosticDetailPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const createActionPlan = async () => {
+    setCreatingPlan(true)
+    const due = new Date()
+    due.setDate(due.getDate() + 30)
+    const dueIso = due.toISOString()
+    const tasks = []
+    for (const section of diag.results!.sections) {
+      for (const rec of section.preconisations) {
+        const key = `${section.id}:${rec}`
+        if (!selectedRecs[key]) continue
+        tasks.push(createTask({
+          title: rec,
+          client_id: diag.client_id,
+          type: 'relance',
+          priority: section.score_pct < 50 ? 'haute' : 'normale',
+          due_date: dueIso,
+        }))
+      }
+    }
+    await Promise.all(tasks)
+    setCreatingPlan(false)
+    setPlanCreated(true)
+    setTimeout(() => { setShowActionPlan(false); setPlanCreated(false); setSelectedRecs({}) }, 2000)
+  }
+
   const results = diag.results ?? computeResults(sections, answers)
   const TypeIcon = diag.type === 'cyber' ? Shield : Brain
   const typeColor = diag.type === 'cyber' ? 'text-red-600' : 'text-violet-600'
@@ -460,6 +489,14 @@ export default function DiagnosticDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {diag.status === 'termine' && diag.results?.sections && (
+              <button
+                onClick={() => setShowActionPlan(true)}
+                className="btn-secondary flex items-center gap-1.5 text-sm"
+              >
+                <CheckCircle2 size={14} /> Plan d'action
+              </button>
+            )}
             <button onClick={copyShareLink} className="btn-secondary flex items-center gap-1.5 text-sm">
               {copied ? <Check size={14} /> : <Share2 size={14} />}
               {copied ? 'Copié !' : 'Partager'}
@@ -498,7 +535,7 @@ export default function DiagnosticDetailPage() {
                     <ul className="space-y-1">
                       {sec.preconisations.map((p: string, i: number) => (
                         <li key={i} className="text-sm text-gray-700 flex gap-2">
-                          <span className="text-sensia-500 mt-0.5">•</span>
+                          <span className="text-accessia-500 mt-0.5">•</span>
                           <span>{p}</span>
                         </li>
                       ))}
@@ -516,15 +553,122 @@ export default function DiagnosticDetailPage() {
             Modifier les réponses
           </button>
           <div className="flex gap-2">
+            {diag.status === 'termine' && diag.results?.sections && (
+              <button
+                onClick={() => setShowActionPlan(true)}
+                className="btn-secondary flex items-center gap-1.5 text-sm"
+              >
+                <CheckCircle2 size={14} /> Creer plan d'action
+              </button>
+            )}
             <button onClick={copyShareLink} className="btn-secondary flex items-center gap-1.5 text-sm">
               {copied ? <Check size={14} /> : <Copy size={14} />}
               Lien de partage
             </button>
             <a href={getDiagnosticPdfUrl(diag.id)} target="_blank" rel="noopener" className="btn-primary flex items-center gap-1.5 text-sm">
-              <Download size={14} /> Télécharger le rapport
+              <Download size={14} /> Telecharger le rapport
             </a>
           </div>
         </div>
+
+        {/* Modal plan d'action */}
+        {showActionPlan && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+              {/* Modal header */}
+              <div className="flex items-center justify-between p-6 border-b">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Plan d'action</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Selectionnez les preconisations a convertir en taches</p>
+                </div>
+                <button
+                  onClick={() => { setShowActionPlan(false); setSelectedRecs({}) }}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"
+                >
+                  <AlertTriangle size={18} className="rotate-45" />
+                </button>
+              </div>
+
+              {/* Modal body */}
+              <div className="overflow-y-auto flex-1 p-6 space-y-6">
+                {planCreated ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <CheckCircle2 size={48} className="text-green-500" />
+                    <p className="text-lg font-semibold text-gray-900">Taches creees avec succes !</p>
+                    <p className="text-sm text-gray-500">Le plan d'action a ete ajoute a votre liste de taches.</p>
+                  </div>
+                ) : (
+                  diag.results!.sections.map((section: any) => (
+                    section.preconisations?.length > 0 && (
+                      <div key={section.id}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="font-semibold text-gray-900 text-sm">{section.title}</h3>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            section.score_pct >= 70
+                              ? 'text-green-700 bg-green-100'
+                              : section.score_pct >= 40
+                              ? 'text-amber-700 bg-amber-100'
+                              : 'text-red-700 bg-red-100'
+                          }`}>{section.score_pct}%</span>
+                        </div>
+                        <div className="space-y-2">
+                          {section.preconisations.map((rec: string, i: number) => {
+                            const key = `${section.id}:${rec}`
+                            const checked = selectedRecs[key] ?? false
+                            return (
+                              <label
+                                key={i}
+                                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                                  checked
+                                    ? 'border-accessia-500 bg-accessia-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={e => setSelectedRecs(prev => ({ ...prev, [key]: e.target.checked }))}
+                                  className="mt-0.5 accent-accessia-500"
+                                />
+                                <span className="text-sm text-gray-700">{rec}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  ))
+                )}
+              </div>
+
+              {/* Modal footer */}
+              {!planCreated && (
+                <div className="p-6 border-t flex items-center justify-between">
+                  <button
+                    onClick={() => { setShowActionPlan(false); setSelectedRecs({}) }}
+                    className="btn-secondary text-sm"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={createActionPlan}
+                    disabled={creatingPlan || Object.values(selectedRecs).filter(Boolean).length === 0}
+                    className="btn-primary text-sm disabled:opacity-40 flex items-center gap-1.5"
+                  >
+                    {creatingPlan ? (
+                      'Creation en cours...'
+                    ) : (
+                      <>
+                        <CheckCircle2 size={14} />
+                        Creer {Object.values(selectedRecs).filter(Boolean).length} tache{Object.values(selectedRecs).filter(Boolean).length !== 1 ? 's' : ''}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -565,7 +709,7 @@ export default function DiagnosticDetailPage() {
         </div>
         <div className="h-1.5 bg-gray-100 rounded-full">
           <div
-            className="h-1.5 rounded-full bg-gradient-to-r from-sensia-500 to-violet-500 transition-all"
+            className="h-1.5 rounded-full bg-gradient-to-r from-accessia-500 to-violet-500 transition-all"
             style={{ width: `${(answeredQ / totalQ) * 100}%` }}
           />
         </div>
@@ -579,7 +723,7 @@ export default function DiagnosticDetailPage() {
           return (
             <button key={s.id} onClick={() => setCurrentSection(i)}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                active ? 'border-sensia-500 bg-sensia-50 text-sensia-700' :
+                active ? 'border-accessia-500 bg-accessia-50 text-accessia-700' :
                 done ? 'border-green-300 bg-green-50 text-green-700' :
                 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
               }`}
@@ -609,12 +753,12 @@ export default function DiagnosticDetailPage() {
                         selected
                           ? isNA
                             ? 'border-gray-400 bg-gray-100 text-gray-700 font-medium'
-                            : 'border-sensia-500 bg-sensia-50 text-sensia-700 font-medium'
+                            : 'border-accessia-500 bg-accessia-50 text-accessia-700 font-medium'
                           : 'border-gray-200 hover:border-gray-300 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
                       <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full mr-2 text-xs font-bold ${
-                        selected ? (isNA ? 'bg-gray-400 text-white' : 'bg-sensia-500 text-white') : 'bg-gray-100 text-gray-400'
+                        selected ? (isNA ? 'bg-gray-400 text-white' : 'bg-accessia-500 text-white') : 'bg-gray-100 text-gray-400'
                       }`}>
                         {isNA ? '—' : String.fromCharCode(65 + oi)}
                       </span>

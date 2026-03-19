@@ -1,5 +1,5 @@
 """
-Gestion automatique des dossiers/fichiers SENSIA DVZ.
+Gestion automatique des dossiers/fichiers ACCESSIA Pro.
 Crée la structure de répertoires et génère les fichiers Markdown
 à partir des données clients/projets.
 """
@@ -11,7 +11,7 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
-# Répertoire racine SENSIA DVZ (parent du dossier _SENSIA_APP)
+# Répertoire racine ACCESSIA Pro (parent du dossier _ACCESSIA_APP)
 SENSIA_BASE = Path(os.getenv("SENSIA_BASE_DIR", str(Path(__file__).parent.parent.parent)))
 
 CLIENTS_DIR = SENSIA_BASE / "01_COMMERCIAL" / "Clients"
@@ -80,7 +80,7 @@ def create_client_folder(client_name: str, client_data: dict) -> str:
 {client_data.get('notes') or '_Aucune note._'}
 
 ---
-*Géré automatiquement par SENSIA Manager*
+*Géré automatiquement par ACCESSIA Pro*
 """
     (client_dir / "PROFIL_CLIENT.md").write_text(profile, encoding="utf-8")
     return str(client_dir)
@@ -157,7 +157,7 @@ def create_project_folder(project_data: dict, client_name: str) -> str:
 {_phase_table(phase)}
 
 ---
-*Généré par SENSIA Manager le {now}*
+*Généré par ACCESSIA Pro le {now}*
 """
     (project_dir / "README.md").write_text(readme, encoding="utf-8")
 

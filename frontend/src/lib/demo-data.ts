@@ -1,11 +1,11 @@
 /**
- * Données de démonstration — SENSIA Manager
+ * Données de démonstration — ACCESSIA Pro
  * Données fictives mais cohérentes pour présenter l'application.
  */
 
 import type {
   DashboardData, Client, ClientDetail, Project, Invoice,
-  Activity, Task, DiagnosticItem,
+  Activity, Task, DiagnosticItem, Quote, TimeEntry, AlertsData, ReportingData,
 } from './api'
 
 // ─── CLIENTS ─────────────────────────────────────────────────
@@ -502,7 +502,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
   {
     id: 6,
     title: 'Envoi proposition commerciale EcoLogis',
-    description: 'Proposition SENSIA pour accompagnement IA — 3 scénarios budget.',
+    description: 'Proposition ACCESSIA Pro pour accompagnement IA — 3 scénarios budget.',
     client_id: 5,
     type: 'email',
     date: '2026-01-20T10:00:00Z',
@@ -702,4 +702,216 @@ export const DEMO_DASHBOARD: DashboardData = {
   ],
   recent_projects: DEMO_PROJECTS.slice(0, 5),
   recent_clients: DEMO_CLIENTS.slice(0, 5),
+}
+
+// ─── DEVIS ────────────────────────────────────────────────────
+
+export const DEMO_QUOTES: Quote[] = [
+  {
+    id: 1,
+    number: 'ACC-DEV-2026-001',
+    client_id: 1,
+    client_name: 'TechVision SAS',
+    project_id: 1,
+    project_name: 'Transformation IA',
+    title: 'Accompagnement IA Phase 2 — Déploiement',
+    amount_ht: 28000,
+    tva_rate: 20,
+    amount_ttc: 33600,
+    status: 'envoye',
+    valid_until: '2026-04-30T00:00:00Z',
+    description: 'Phase de déploiement et formation des équipes suite au diagnostic IA.',
+    created_at: '2026-03-01T10:00:00Z',
+  },
+  {
+    id: 2,
+    number: 'ACC-DEV-2026-002',
+    client_id: 3,
+    client_name: 'MedConnect',
+    project_id: 3,
+    project_name: 'RGPD & Conformité',
+    title: 'Pack Conformité RGPD — Audit + Mise en conformité',
+    amount_ht: 12000,
+    tva_rate: 20,
+    amount_ttc: 14400,
+    status: 'accepte',
+    valid_until: '2026-03-31T00:00:00Z',
+    description: 'Audit complet RGPD et plan de mise en conformité pour startup santé.',
+    created_at: '2026-02-10T09:00:00Z',
+  },
+  {
+    id: 3,
+    number: 'ACC-DEV-2026-003',
+    client_id: 5,
+    client_name: 'Artisan Digital',
+    title: 'Formation IA Équipe Commerce',
+    amount_ht: 4500,
+    tva_rate: 20,
+    amount_ttc: 5400,
+    status: 'brouillon',
+    description: 'Formation IA 2 jours pour les équipes commerciales.',
+    created_at: '2026-03-10T14:00:00Z',
+  },
+  {
+    id: 4,
+    number: 'ACC-DEV-2025-008',
+    client_id: 2,
+    client_name: 'Cabinet Dupont & Associés',
+    title: 'Diagnostic Cybersécurité — Renouvellement',
+    amount_ht: 7500,
+    tva_rate: 20,
+    amount_ttc: 9000,
+    status: 'refuse',
+    valid_until: '2026-02-15T00:00:00Z',
+    created_at: '2026-01-15T11:00:00Z',
+  },
+]
+
+// ─── SUIVI DU TEMPS ──────────────────────────────────────────
+
+export const DEMO_TIME_ENTRIES: TimeEntry[] = [
+  {
+    id: 1,
+    project_id: 1,
+    project_name: 'Transformation IA',
+    client_id: 1,
+    client_name: 'TechVision SAS',
+    date: '2026-03-18T09:00:00Z',
+    duration_minutes: 180,
+    description: 'Atelier cadrage use cases IA avec les équipes',
+    created_at: '2026-03-18T12:00:00Z',
+  },
+  {
+    id: 2,
+    project_id: 1,
+    project_name: 'Transformation IA',
+    client_id: 1,
+    client_name: 'TechVision SAS',
+    date: '2026-03-15T14:00:00Z',
+    duration_minutes: 120,
+    description: 'Rédaction du rapport de diagnostic',
+    created_at: '2026-03-15T16:00:00Z',
+  },
+  {
+    id: 3,
+    project_id: 1,
+    project_name: 'Transformation IA',
+    client_id: 1,
+    client_name: 'TechVision SAS',
+    date: '2026-03-10T10:00:00Z',
+    duration_minutes: 90,
+    description: 'Réunion de lancement client',
+    created_at: '2026-03-10T11:30:00Z',
+  },
+  {
+    id: 4,
+    project_id: 4,
+    project_name: 'Chatbot IA Service Client',
+    client_id: 4,
+    client_name: 'RetailPlus Group',
+    date: '2026-03-17T09:00:00Z',
+    duration_minutes: 240,
+    description: 'Développement du prototype chatbot',
+    created_at: '2026-03-17T13:00:00Z',
+  },
+  {
+    id: 5,
+    project_id: 4,
+    project_name: 'Chatbot IA Service Client',
+    client_id: 4,
+    client_name: 'RetailPlus Group',
+    date: '2026-03-12T14:00:00Z',
+    duration_minutes: 60,
+    description: 'Point hebdomadaire client',
+    created_at: '2026-03-12T15:00:00Z',
+  },
+]
+
+// ─── ALERTES ─────────────────────────────────────────────────
+
+export const DEMO_ALERTS: AlertsData = {
+  overdue_invoices: [
+    {
+      id: 3,
+      number: 'FAC-2025-003',
+      client_name: 'MedConnect',
+      amount_ttc: 9600,
+      due_date: '2026-03-01T00:00:00Z',
+      days_late: 18,
+    },
+  ],
+  overdue_tasks: [
+    {
+      id: 2,
+      title: 'Préparer proposition commerciale TechVision Phase 2',
+      client_name: 'TechVision SAS',
+      due_date: '2026-03-10T00:00:00Z',
+      days_late: 9,
+      priority: 'haute',
+    },
+    {
+      id: 5,
+      title: 'Envoyer rapport RGPD MedConnect',
+      client_name: 'MedConnect',
+      due_date: '2026-03-14T00:00:00Z',
+      days_late: 5,
+      priority: 'haute',
+    },
+  ],
+  silent_clients: [
+    {
+      id: 6,
+      name: 'Boulangerie Dorée',
+      pipeline_stage: 'qualification',
+      last_activity_date: '2026-02-20T00:00:00Z',
+      days_silent: 27,
+    },
+  ],
+  upcoming_deadlines: [
+    {
+      type: 'task',
+      id: 3,
+      title: 'Réunion bilan Q1 — RetailPlus',
+      due_date: '2026-03-22T00:00:00Z',
+      days_left: 3,
+    },
+    {
+      type: 'task',
+      id: 4,
+      title: 'Livraison rapport cybersécurité — Cabinet Dupont',
+      due_date: '2026-03-25T00:00:00Z',
+      days_left: 6,
+    },
+  ],
+}
+
+// ─── REPORTING ────────────────────────────────────────────────
+
+export const DEMO_REPORTING: ReportingData = {
+  ca_by_month: [
+    { month: 9,  ca_ht: 8000,  ca_ttc: 9600,  nb_invoices: 1 },
+    { month: 10, ca_ht: 15000, ca_ttc: 18000, nb_invoices: 2 },
+    { month: 11, ca_ht: 0,     ca_ttc: 0,     nb_invoices: 0 },
+    { month: 12, ca_ht: 30000, ca_ttc: 36000, nb_invoices: 3 },
+    { month: 1,  ca_ht: 0,     ca_ttc: 0,     nb_invoices: 0 },
+    { month: 2,  ca_ht: 0,     ca_ttc: 0,     nb_invoices: 0 },
+    { month: 3,  ca_ht: 0,     ca_ttc: 0,     nb_invoices: 0 },
+  ],
+  ca_by_client: [
+    { client_name: 'Cabinet Dupont & Associés', ca_ht: 23000, nb_projects: 2 },
+    { client_name: 'TechVision SAS', ca_ht: 15000, nb_projects: 2 },
+    { client_name: 'MedConnect', ca_ht: 8000, nb_projects: 1 },
+    { client_name: 'RetailPlus Group', ca_ht: 7000, nb_projects: 1 },
+  ],
+  ca_by_type: [
+    { type: 'ia', ca_ht: 30000 },
+    { type: 'cyber', ca_ht: 15000 },
+    { type: 'formation', ca_ht: 8000 },
+  ],
+  top_clients: [
+    { client_name: 'Cabinet Dupont & Associés', ca_ht: 23000, nb_projects: 2 },
+    { client_name: 'TechVision SAS', ca_ht: 15000, nb_projects: 2 },
+    { client_name: 'MedConnect', ca_ht: 8000, nb_projects: 1 },
+    { client_name: 'RetailPlus Group', ca_ht: 7000, nb_projects: 1 },
+  ],
 }

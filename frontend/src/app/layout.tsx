@@ -6,8 +6,8 @@ import LayoutShell from '@/components/LayoutShell'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'SENSIA Manager',
-  description: 'Gestion clients, projets & CRM — SENSIA DVZ',
+  title: 'ACCESSIA Pro',
+  description: 'Gestion clients, projets & CRM — ACCESSIA Pro',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

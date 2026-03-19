@@ -8,7 +8,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        sensia: {
+        accessia: {
           50:  '#f0f4ff',
           100: '#dce6ff',
           200: '#b9ccff',

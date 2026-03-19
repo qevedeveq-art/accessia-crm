@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getDashboard, DashboardData } from '@/lib/api'
+import { getDashboard, getAlerts, DashboardData, AlertsData } from '@/lib/api'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 import {
-  Users, FolderKanban, TrendingUp, Clock, CheckCircle, AlertCircle,
+  Users, FolderKanban, TrendingUp, Clock, CheckCircle, AlertCircle, AlertTriangle, Bell,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -52,12 +52,66 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
   )
 }
 
+function AlertsWidget({ alerts }: { alerts: AlertsData }) {
+  const total = alerts.overdue_invoices.length + alerts.overdue_tasks.length + alerts.silent_clients.length
+  if (total === 0) return null
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Bell size={16} className="text-gray-500" />
+        <h2 className="font-semibold text-gray-800">Alertes</h2>
+        <span className="ml-auto text-xs bg-red-100 text-red-700 font-semibold px-2 py-0.5 rounded-full">{total}</span>
+      </div>
+      <div className="space-y-2">
+        {alerts.overdue_invoices.map(inv => (
+          <Link key={inv.id} href="/finances" className="flex items-center gap-3 p-2 rounded-lg hover:bg-red-50 transition-colors">
+            <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+            <span className="text-sm text-gray-700 flex-1">
+              Facture <strong>{inv.number}</strong> — {inv.client_name} en retard de <strong>{inv.days_late}j</strong>
+            </span>
+            <span className="text-xs text-red-600 font-medium">{inv.amount_ttc.toLocaleString('fr-FR')} €</span>
+          </Link>
+        ))}
+        {alerts.overdue_tasks.map(t => (
+          <Link key={t.id} href="/crm" className="flex items-center gap-3 p-2 rounded-lg hover:bg-orange-50 transition-colors">
+            <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+            <span className="text-sm text-gray-700 flex-1">
+              Tâche <strong>{t.title}</strong> — {t.client_name} en retard de <strong>{t.days_late}j</strong>
+            </span>
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${t.priority === 'haute' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{t.priority}</span>
+          </Link>
+        ))}
+        {alerts.silent_clients.map(c => (
+          <Link key={c.id} href="/crm" className="flex items-center gap-3 p-2 rounded-lg hover:bg-yellow-50 transition-colors">
+            <span className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" />
+            <span className="text-sm text-gray-700 flex-1">
+              Lead silencieux : <strong>{c.name}</strong> — aucune activité depuis <strong>{c.days_silent}j</strong>
+            </span>
+            <span className="text-xs text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded">{c.pipeline_stage}</span>
+          </Link>
+        ))}
+        {alerts.upcoming_deadlines.slice(0, 3).map((d, i) => (
+          <div key={i} className="flex items-center gap-3 p-2 rounded-lg">
+            <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+            <span className="text-sm text-gray-700 flex-1">
+              Échéance dans <strong>{d.days_left}j</strong> : {d.title}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
+  const [alerts, setAlerts] = useState<AlertsData | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     getDashboard().then(setData).catch(e => setError(e.message))
+    getAlerts().then(setAlerts).catch(() => {})
   }, [])
 
   if (error) {
@@ -85,14 +139,17 @@ export default function Dashboard() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Vue d'ensemble SENSIA DVZ</p>
+        <p className="text-sm text-gray-500 mt-0.5">Vue d'ensemble ACCESSIA Pro</p>
       </div>
+
+      {/* Alertes */}
+      {alerts && <AlertsWidget alerts={alerts} />}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Clients totaux" value={kpis.total_clients}
           sub={`${kpis.active_clients} actifs · ${kpis.prospects} prospects`}
-          icon={Users} color="bg-sensia-500" />
+          icon={Users} color="bg-accessia-500" />
         <KpiCard label="Projets actifs" value={kpis.active_projects}
           sub={`${kpis.total_projects} au total`}
           icon={FolderKanban} color="bg-violet-500" />
@@ -131,7 +188,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-800">Projets récents</h2>
-            <Link href="/projects" className="text-xs text-sensia-500 hover:underline">Voir tout →</Link>
+            <Link href="/projects" className="text-xs text-accessia-500 hover:underline">Voir tout →</Link>
           </div>
           <div className="space-y-3">
             {recent_projects.length === 0 && (
@@ -158,7 +215,7 @@ export default function Dashboard() {
       <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-gray-800">Clients récents</h2>
-          <Link href="/clients" className="text-xs text-sensia-500 hover:underline">Voir tout →</Link>
+          <Link href="/clients" className="text-xs text-accessia-500 hover:underline">Voir tout →</Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -177,7 +234,7 @@ export default function Dashboard() {
               {recent_clients.map(c => (
                 <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="py-2 pr-4 font-medium">
-                    <Link href={`/clients/${c.id}`} className="hover:text-sensia-600">{c.name}</Link>
+                    <Link href={`/clients/${c.id}`} className="hover:text-accessia-600">{c.name}</Link>
                   </td>
                   <td className="py-2 pr-4 text-gray-500 uppercase text-xs">{c.type}</td>
                   <td className="py-2 pr-4 text-gray-500">{c.sector || '—'}</td>

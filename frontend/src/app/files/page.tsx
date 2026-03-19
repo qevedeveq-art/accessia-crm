@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation'
 
 function FileIcon({ ext, isDir }: { ext?: string | null; isDir: boolean }) {
   if (isDir) return <Folder size={16} className="text-amber-500 shrink-0" />
-  if (ext === '.md' || ext === '.txt') return <FileText size={16} className="text-sensia-500 shrink-0" />
+  if (ext === '.md' || ext === '.txt') return <FileText size={16} className="text-accessia-500 shrink-0" />
   return <File size={16} className="text-gray-400 shrink-0" />
 }
 
@@ -129,7 +129,7 @@ function FilesPageInner() {
                 )}
               </div>
               {!item.is_dir && (item.extension === '.md' || item.extension === '.txt') && (
-                <Eye size={12} className="shrink-0 text-gray-300 group-hover:text-sensia-400" />
+                <Eye size={12} className="shrink-0 text-gray-300 group-hover:text-accessia-400" />
               )}
               {item.is_dir && <ChevronRight size={12} className="shrink-0 text-gray-300" />}
             </button>

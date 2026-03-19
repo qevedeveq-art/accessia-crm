@@ -73,7 +73,7 @@ export default function ClientsPage() {
         </div>
         <button
           onClick={() => { setOpen(true); setError('') }}
-          className="flex items-center gap-2 bg-sensia-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sensia-700 transition-colors"
+          className="flex items-center gap-2 bg-accessia-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors"
         >
           <Plus size={16} /> Nouveau client
         </button>
@@ -95,13 +95,13 @@ export default function ClientsPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher…"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-sensia-300 outline-none"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-accessia-300 outline-none"
           />
         </div>
         <select
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sensia-300 outline-none"
+          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accessia-300 outline-none"
         >
           <option value="">Tous les statuts</option>
           {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -123,7 +123,7 @@ export default function ClientsPage() {
             className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-shadow flex items-center justify-between"
           >
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-sensia-100 text-sensia-700 flex items-center justify-center font-bold text-sm">
+              <div className="w-10 h-10 rounded-full bg-accessia-100 text-accessia-700 flex items-center justify-center font-bold text-sm">
                 {c.name[0].toUpperCase()}
               </div>
               <div>
@@ -175,14 +175,14 @@ export default function ClientsPage() {
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la société *</label>
                   <input value={form.name} onChange={e => set('name', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
                     placeholder="Ex: TechCorp SAS" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                   <select value={form.type} onChange={e => set('type', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
                     {TYPE_OPTS.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
                   </select>
                 </div>
@@ -190,7 +190,7 @@ export default function ClientsPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
                   <select value={form.status} onChange={e => set('status', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
                     {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -198,7 +198,7 @@ export default function ClientsPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Secteur</label>
                   <select value={form.sector} onChange={e => set('sector', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
                     <option value="">— Sélectionner —</option>
                     {SECTOR_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -207,7 +207,7 @@ export default function ClientsPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
                   <select value={form.source} onChange={e => set('source', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
                     <option value="">— Sélectionner —</option>
                     {SOURCE_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -216,28 +216,28 @@ export default function ClientsPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Contact principal</label>
                   <input value={form.contact_name} onChange={e => set('contact_name', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
                     placeholder="Prénom Nom" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                   <input type="email" value={form.contact_email} onChange={e => set('contact_email', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
                     placeholder="contact@société.fr" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
                   <input value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
                     placeholder="06 00 00 00 00" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Budget estimé</label>
                   <select value={form.budget_range} onChange={e => set('budget_range', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none">
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none">
                     <option value="">— Sélectionner —</option>
                     {BUDGET_OPTS.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
@@ -246,21 +246,21 @@ export default function ClientsPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">SIRET</label>
                   <input value={form.siret} onChange={e => set('siret', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
                     placeholder="123 456 789 00012" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
                   <input value={form.website} onChange={e => set('website', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
                     placeholder="https://…" />
                 </div>
 
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
                   <input value={form.address} onChange={e => set('address', e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
                     placeholder="123 rue de la Paix, 75001 Paris" />
                 </div>
 
@@ -268,7 +268,7 @@ export default function ClientsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                   <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
                     rows={3}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sensia-300 outline-none resize-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none resize-none"
                     placeholder="Contexte, besoins identifiés…" />
                 </div>
 
@@ -281,7 +281,7 @@ export default function ClientsPage() {
                 Annuler
               </button>
               <button onClick={submit} disabled={saving}
-                className="px-5 py-2 bg-sensia-600 text-white rounded-lg text-sm font-medium hover:bg-sensia-700 transition-colors disabled:opacity-60">
+                className="px-5 py-2 bg-accessia-600 text-white rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors disabled:opacity-60">
                 {saving ? 'Création…' : 'Créer le client + dossier'}
               </button>
             </div>

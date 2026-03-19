@@ -1,6 +1,7 @@
 import {
   DEMO_DASHBOARD, DEMO_CLIENTS, DEMO_CLIENT_DETAILS, DEMO_PROJECTS,
   DEMO_INVOICES, DEMO_ACTIVITIES, DEMO_TASKS, DEMO_DIAGNOSTICS, DEMO_PIPELINE,
+  DEMO_QUOTES, DEMO_TIME_ENTRIES, DEMO_ALERTS, DEMO_REPORTING,
 } from './demo-data'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
@@ -186,7 +187,7 @@ export const getActivities = (params?: { client_id?: number; limit?: number }) =
 
 export const createActivity = (data: ActivityCreate) =>
   isDemoMode()
-    ? Promise.resolve({ id: 99, type: 'appel', created_at: new Date().toISOString(), ...data } as Activity)
+    ? Promise.resolve({ id: 99, created_at: new Date().toISOString(), ...data, type: data.type || 'appel' } as Activity)
     : request<Activity>('/activities', { method: 'POST', body: JSON.stringify(data) })
 
 export const deleteActivity = (id: number) =>
@@ -278,7 +279,7 @@ const DEMO_FILES: FileItem[] = [
   { name: 'PRJ-2025-001_TechVision_IA', path: 'Projets/PRJ-2025-001', is_dir: true, modified: '2026-03-10T10:00:00Z' },
   { name: 'PRJ-2025-002_Dupont_Cyber', path: 'Projets/PRJ-2025-002', is_dir: true, modified: '2025-10-15T10:00:00Z' },
   { name: 'Templates', path: 'Templates', is_dir: true, modified: '2025-08-01T10:00:00Z' },
-  { name: 'Contrat_type_SENSIA_v2.docx', path: 'Templates/Contrat_type_SENSIA_v2.docx', is_dir: false, size: 45200, modified: '2025-08-01T10:00:00Z', extension: 'docx' },
+  { name: 'Contrat_type_ACCESSIA_v2.docx', path: 'Templates/Contrat_type_ACCESSIA_v2.docx', is_dir: false, size: 45200, modified: '2025-08-01T10:00:00Z', extension: 'docx' },
   { name: 'Proposition_commerciale_IA.pptx', path: 'Templates/Proposition_commerciale_IA.pptx', is_dir: false, size: 2340000, modified: '2025-12-10T10:00:00Z', extension: 'pptx' },
 ]
 
@@ -292,8 +293,77 @@ export const browseDir = (path: string) =>
 
 export const readFile = (path: string) =>
   isDemoMode()
-    ? Promise.resolve({ content: `# Fichier de démonstration\n\nCe fichier fait partie des données de démo SENSIA Manager.\n\nChemin : ${path}`, path })
+    ? Promise.resolve({ content: `# Fichier de démonstration\n\nCe fichier fait partie des données de démo ACCESSIA Pro.\n\nChemin : ${path}`, path })
     : request<{ content: string; path: string }>(`/files/read?path=${encodeURIComponent(path)}`)
+
+// ─── ALERTES ─────────────────────────────────────────────────
+
+export const getAlerts = () =>
+  isDemoMode() ? Promise.resolve(DEMO_ALERTS) : request<AlertsData>('/alerts')
+
+// ─── REPORTING ───────────────────────────────────────────────
+
+export const getReporting = (params?: { period?: string; year?: number; month?: number }) =>
+  isDemoMode() ? Promise.resolve(DEMO_REPORTING) : request<ReportingData>(`/reporting${buildQuery(params)}`)
+
+// ─── DEVIS ───────────────────────────────────────────────────
+
+export const getQuotes = (params?: { client_id?: number; status?: string }) => {
+  if (isDemoMode()) {
+    let list = [...DEMO_QUOTES]
+    if (params?.client_id) list = list.filter(q => q.client_id === params.client_id)
+    if (params?.status) list = list.filter(q => q.status === params.status)
+    return Promise.resolve(list)
+  }
+  return request<Quote[]>(`/quotes${buildQuery(params)}`)
+}
+
+export const createQuote = (data: QuoteCreate) =>
+  isDemoMode()
+    ? Promise.resolve({ id: 99, number: 'ACC-DEV-2026-099', amount_ttc: data.amount_ht * 1.2, ...data } as Quote)
+    : request<Quote>('/quotes', { method: 'POST', body: JSON.stringify(data) })
+
+export const updateQuote = (id: number, data: QuoteCreate) =>
+  isDemoMode()
+    ? Promise.resolve({ ...DEMO_QUOTES.find(q => q.id === id)!, ...data } as Quote)
+    : request<Quote>(`/quotes/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+
+export const updateQuoteStatus = (id: number, status: string) =>
+  isDemoMode()
+    ? Promise.resolve({ id, status })
+    : request<{ id: number; status: string }>(`/quotes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
+
+export const convertQuoteToInvoice = (id: number) =>
+  isDemoMode()
+    ? Promise.resolve({ invoice_id: 99, invoice_number: 'ACC-2026-099' })
+    : request<{ invoice_id: number; invoice_number: string }>(`/quotes/${id}/convert`, { method: 'POST' })
+
+export const deleteQuote = (id: number) =>
+  isDemoMode()
+    ? Promise.resolve({ message: 'Suppression désactivée en mode démo' })
+    : request<{ message: string }>(`/quotes/${id}`, { method: 'DELETE' })
+
+// ─── SUIVI DU TEMPS ──────────────────────────────────────────
+
+export const getTimeEntries = (params?: { project_id?: number; client_id?: number }) => {
+  if (isDemoMode()) {
+    let list = [...DEMO_TIME_ENTRIES]
+    if (params?.project_id) list = list.filter(e => e.project_id === params.project_id)
+    if (params?.client_id) list = list.filter(e => e.client_id === params.client_id)
+    return Promise.resolve(list)
+  }
+  return request<TimeEntry[]>(`/time-entries${buildQuery(params)}`)
+}
+
+export const createTimeEntry = (data: TimeEntryCreate) =>
+  isDemoMode()
+    ? Promise.resolve({ id: 99, project_name: '', client_name: '', created_at: new Date().toISOString(), ...data } as TimeEntry)
+    : request<TimeEntry>('/time-entries', { method: 'POST', body: JSON.stringify(data) })
+
+export const deleteTimeEntry = (id: number) =>
+  isDemoMode()
+    ? Promise.resolve({ message: 'Suppression désactivée en mode démo' })
+    : request<{ message: string }>(`/time-entries/${id}`, { method: 'DELETE' })
 
 // ─── TYPES ───────────────────────────────────────────────────
 
@@ -537,4 +607,69 @@ export interface FileItem {
   size?: number
   modified: string
   extension?: string
+}
+
+export interface Quote {
+  id: number
+  number: string
+  client_id: number
+  client_name?: string
+  project_id?: number
+  project_name?: string
+  title: string
+  amount_ht: number
+  amount_ttc: number
+  tva_rate: number
+  status: string
+  valid_until?: string
+  description?: string
+  notes?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface QuoteCreate {
+  client_id: number
+  project_id?: number
+  title: string
+  amount_ht: number
+  tva_rate?: number
+  status?: string
+  valid_until?: string
+  description?: string
+  notes?: string
+}
+
+export interface TimeEntry {
+  id: number
+  project_id: number
+  project_name?: string
+  client_id: number
+  client_name?: string
+  date?: string
+  duration_minutes: number
+  description?: string
+  created_at?: string
+}
+
+export interface TimeEntryCreate {
+  project_id: number
+  client_id: number
+  date?: string
+  duration_minutes: number
+  description?: string
+}
+
+export interface AlertsData {
+  overdue_invoices: { id: number; number: string; client_name: string; amount_ttc: number; due_date?: string; days_late: number }[]
+  overdue_tasks: { id: number; title: string; client_name: string; due_date?: string; days_late: number; priority: string }[]
+  silent_clients: { id: number; name: string; pipeline_stage: string; last_activity_date?: string; days_silent: number }[]
+  upcoming_deadlines: { type: string; id: number; title: string; due_date?: string; days_left: number }[]
+}
+
+export interface ReportingData {
+  ca_by_month: { month: number; ca_ht: number; ca_ttc: number; nb_invoices: number }[]
+  ca_by_client: { client_name: string; ca_ht: number; nb_projects: number }[]
+  ca_by_type: { type: string; ca_ht: number }[]
+  top_clients: { client_name: string; ca_ht: number; nb_projects: number }[]
 }

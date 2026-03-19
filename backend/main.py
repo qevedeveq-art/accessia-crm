@@ -1,5 +1,5 @@
 """
-SENSIA Manager — API Backend
+ACCESSIA Pro — API Backend
 FastAPI + SQLAlchemy + SQLite
 """
 import os
@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 from slugify import slugify
 
 from database import engine, get_db, Base
-from models import Client, Project, Contact, Invoice, Activity, Task, Diagnostic
+from models import Client, Project, Contact, Invoice, Activity, Task, Diagnostic, Quote, TimeEntry
 import file_service
 
 log = logging.getLogger(__name__)
@@ -71,6 +71,34 @@ def _run_migrations():
                 updated_at DATETIME
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS quotes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                number VARCHAR(40) UNIQUE NOT NULL,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+                title VARCHAR(300) NOT NULL,
+                amount_ht REAL NOT NULL,
+                tva_rate REAL DEFAULT 20.0,
+                status VARCHAR(20) DEFAULT 'brouillon',
+                valid_until DATETIME,
+                description TEXT,
+                notes TEXT,
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS time_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                date DATETIME,
+                duration_minutes INTEGER NOT NULL,
+                description VARCHAR(500),
+                created_at DATETIME
+            )
+        """)
         # Supprimer les colonnes Twenty obsolètes n'est pas possible en SQLite (pas de DROP COLUMN avant 3.35)
         conn.commit()
         conn.close()
@@ -81,9 +109,9 @@ def _run_migrations():
 _run_migrations()
 
 app = FastAPI(
-    title="SENSIA Manager API",
+    title="ACCESSIA Pro API",
     version="1.1.0",
-    description="Gestion clients, projets et fichiers — SENSIA DVZ",
+    description="Gestion clients, projets et fichiers — ACCESSIA Pro",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
@@ -400,9 +428,9 @@ def _next_project_code(db: Session) -> str:
 def _next_invoice_number(db: Session) -> str:
     year = _now().year
     count = db.query(func.count(Invoice.id)).filter(
-        Invoice.number.like(f"SENSIA-{year}-%")
+        Invoice.number.like(f"ACC-{year}-%")
     ).scalar() or 0
-    return f"SENSIA-{year}-{count + 1:03d}"
+    return f"ACC-{year}-{count + 1:03d}"
 
 
 def _serialize_activity(a: Activity) -> dict:
@@ -1125,8 +1153,8 @@ def generate_diagnostic_pdf(diag_id: int, db: Session = Depends(get_db)):
     .score-global .label{{font-size:14px;color:#6b7280}}
     </style></head><body>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-        <div style="width:40px;height:40px;background:#2850ff;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700">S</div>
-        <div><h1 style="margin:0">SENSIA DVZ</h1><p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px">Conseil IA · PME & Entrepreneurs</p></div>
+        <div style="width:40px;height:40px;background:#2850ff;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700">A</div>
+        <div><h1 style="margin:0">ACCESSIA Pro</h1><p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px">Conseil IA · PME & Entrepreneurs</p></div>
     </div>
     <h1>Rapport de Diagnostic {diag_type_label}</h1>
     <div class="meta">
@@ -1143,7 +1171,7 @@ def generate_diagnostic_pdf(diag_id: int, db: Session = Depends(get_db)):
     {sections_html}
     <hr style="margin-top:40px;border:none;border-top:1px solid #e5e7eb">
     <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px">
-        Rapport généré automatiquement par SENSIA Manager — {now_str}<br>
+        Rapport généré automatiquement par ACCESSIA Pro — {now_str}<br>
         Ce document est confidentiel.
     </p>
     </body></html>"""
@@ -1180,6 +1208,410 @@ def regenerate_share_token(diag_id: int, db: Session = Depends(get_db)):
     d.updated_at = _now()
     db.commit()
     return {"id": d.id, "share_token": d.share_token}
+
+
+# ═══════════════════════════════════════════════════════════════
+# ALERTES
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/alerts")
+def get_alerts(db: Session = Depends(get_db)):
+    now = _now()
+
+    # Factures en retard
+    overdue_invoices_q = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.client))
+        .filter(Invoice.status == "envoyee", Invoice.due_date < now)
+        .all()
+    )
+    overdue_invoices = [
+        {
+            "id": inv.id,
+            "number": inv.number,
+            "client_name": inv.client.name if inv.client else "",
+            "amount_ttc": round(inv.amount_ht * (1 + inv.tva_rate / 100), 2),
+            "due_date": inv.due_date.isoformat() if inv.due_date else None,
+            "days_late": (now - inv.due_date).days if inv.due_date else 0,
+        }
+        for inv in overdue_invoices_q
+    ]
+
+    # Tâches en retard
+    overdue_tasks_q = (
+        db.query(Task)
+        .options(joinedload(Task.client))
+        .filter(Task.status != "fait", Task.due_date != None, Task.due_date < now)
+        .all()
+    )
+    overdue_tasks = [
+        {
+            "id": t.id,
+            "title": t.title,
+            "client_name": t.client.name if t.client else "",
+            "due_date": t.due_date.isoformat() if t.due_date else None,
+            "days_late": (now - t.due_date).days if t.due_date else 0,
+            "priority": t.priority,
+        }
+        for t in overdue_tasks_q
+    ]
+
+    # Leads silencieux (pipeline actif, aucune activité depuis 21j)
+    from datetime import timedelta
+    cutoff = now - timedelta(days=21)
+    pipeline_stages = ["nouveau", "contact", "qualification", "proposition", "negociation"]
+    silent_clients_q = (
+        db.query(Client)
+        .filter(Client.pipeline_stage.in_(pipeline_stages))
+        .all()
+    )
+    silent_clients = []
+    for c in silent_clients_q:
+        last_act = (
+            db.query(func.max(Activity.date))
+            .filter(Activity.client_id == c.id)
+            .scalar()
+        )
+        if last_act is None or (last_act.replace(tzinfo=None) < cutoff.replace(tzinfo=None)):
+            silent_clients.append({
+                "id": c.id,
+                "name": c.name,
+                "pipeline_stage": c.pipeline_stage,
+                "last_activity_date": last_act.isoformat() if last_act else None,
+                "days_silent": (now.replace(tzinfo=None) - last_act.replace(tzinfo=None)).days if last_act else 999,
+            })
+
+    # Échéances à venir (7 prochains jours)
+    horizon = now + timedelta(days=7)
+    upcoming_tasks_q = (
+        db.query(Task)
+        .filter(Task.status != "fait", Task.due_date >= now, Task.due_date <= horizon)
+        .all()
+    )
+    upcoming_deadlines = [
+        {
+            "type": "task",
+            "id": t.id,
+            "title": t.title,
+            "due_date": t.due_date.isoformat() if t.due_date else None,
+            "days_left": (t.due_date - now).days if t.due_date else 0,
+        }
+        for t in upcoming_tasks_q
+    ]
+
+    return {
+        "overdue_invoices": overdue_invoices,
+        "overdue_tasks": overdue_tasks,
+        "silent_clients": silent_clients,
+        "upcoming_deadlines": upcoming_deadlines,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# REPORTING
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/reporting")
+def get_reporting(
+    period: str = Query("year", regex="^(month|quarter|year)$"),
+    year: Optional[int] = Query(None),
+    month: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    now = _now()
+    target_year = year or now.year
+
+    # CA par mois pour l'année cible
+    paid_invoices = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.client))
+        .filter(Invoice.status == "payee")
+        .all()
+    )
+
+    ca_by_month: dict = {}
+    for inv in paid_invoices:
+        d = inv.issued_date or inv.created_at
+        if d and d.year == target_year:
+            m = d.month
+            if m not in ca_by_month:
+                ca_by_month[m] = {"month": m, "ca_ht": 0.0, "ca_ttc": 0.0, "nb_invoices": 0}
+            ca_by_month[m]["ca_ht"] += inv.amount_ht
+            ca_by_month[m]["ca_ttc"] += inv.amount_ht * (1 + inv.tva_rate / 100)
+            ca_by_month[m]["nb_invoices"] += 1
+
+    ca_by_month_list = [
+        {**v, "ca_ht": round(v["ca_ht"], 2), "ca_ttc": round(v["ca_ttc"], 2)}
+        for v in sorted(ca_by_month.values(), key=lambda x: x["month"])
+    ]
+
+    # CA par client
+    ca_by_client: dict = {}
+    for inv in paid_invoices:
+        cname = inv.client.name if inv.client else "Inconnu"
+        if cname not in ca_by_client:
+            ca_by_client[cname] = {"client_name": cname, "ca_ht": 0.0, "nb_projects": set()}
+        ca_by_client[cname]["ca_ht"] += inv.amount_ht
+        if inv.project_id:
+            ca_by_client[cname]["nb_projects"].add(inv.project_id)
+
+    ca_by_client_list = sorted(
+        [{"client_name": k, "ca_ht": round(v["ca_ht"], 2), "nb_projects": len(v["nb_projects"])}
+         for k, v in ca_by_client.items()],
+        key=lambda x: x["ca_ht"],
+        reverse=True,
+    )[:10]
+
+    # CA par type de mission (via projets)
+    projects = db.query(Project).filter(Project.status == "termine").all()
+    ca_by_type: dict = {}
+    for p in projects:
+        t = p.type or "autre"
+        if t not in ca_by_type:
+            ca_by_type[t] = {"type": t, "ca_ht": 0.0}
+        ca_by_type[t]["ca_ht"] += p.budget or 0
+
+    return {
+        "ca_by_month": ca_by_month_list,
+        "ca_by_client": ca_by_client_list,
+        "ca_by_type": [{"type": k, "ca_ht": round(v["ca_ht"], 2)} for k, v in ca_by_type.items()],
+        "top_clients": ca_by_client_list[:5],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# DEVIS (QUOTES)
+# ═══════════════════════════════════════════════════════════════
+
+def _next_quote_number(db: Session) -> str:
+    year = _now().year
+    count = db.query(func.count(Quote.id)).filter(
+        Quote.number.like(f"ACC-DEV-{year}-%")
+    ).scalar() or 0
+    return f"ACC-DEV-{year}-{count + 1:03d}"
+
+
+class QuoteCreate(BaseModel):
+    client_id: int
+    project_id: Optional[int] = None
+    title: str
+    amount_ht: float
+    tva_rate: float = 20.0
+    status: str = "brouillon"
+    valid_until: Optional[str] = None
+    description: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class QuoteUpdate(QuoteCreate):
+    pass
+
+
+@app.get("/api/quotes")
+def list_quotes(
+    client_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Quote).options(joinedload(Quote.client), joinedload(Quote.project))
+    if client_id:
+        q = q.filter(Quote.client_id == client_id)
+    if status:
+        q = q.filter(Quote.status == status)
+    quotes = q.order_by(Quote.created_at.desc()).all()
+    return [_serialize_quote(qt) for qt in quotes]
+
+
+@app.post("/api/quotes", status_code=201)
+def create_quote(body: QuoteCreate, db: Session = Depends(get_db)):
+    valid_until = None
+    if body.valid_until:
+        try:
+            valid_until = datetime.fromisoformat(body.valid_until.replace("Z", "+00:00"))
+        except Exception:
+            pass
+    qt = Quote(
+        number=_next_quote_number(db),
+        client_id=body.client_id,
+        project_id=body.project_id,
+        title=body.title,
+        amount_ht=body.amount_ht,
+        tva_rate=body.tva_rate,
+        status=body.status,
+        valid_until=valid_until,
+        description=body.description,
+        notes=body.notes,
+        created_at=_now(),
+        updated_at=_now(),
+    )
+    db.add(qt)
+    db.commit()
+    db.refresh(qt)
+    return _serialize_quote(qt)
+
+
+@app.put("/api/quotes/{quote_id}")
+def update_quote(quote_id: int, body: QuoteUpdate, db: Session = Depends(get_db)):
+    qt = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not qt:
+        raise HTTPException(404, "Devis non trouvé")
+    valid_until = None
+    if body.valid_until:
+        try:
+            valid_until = datetime.fromisoformat(body.valid_until.replace("Z", "+00:00"))
+        except Exception:
+            pass
+    qt.client_id = body.client_id
+    qt.project_id = body.project_id
+    qt.title = body.title
+    qt.amount_ht = body.amount_ht
+    qt.tva_rate = body.tva_rate
+    qt.status = body.status
+    qt.valid_until = valid_until
+    qt.description = body.description
+    qt.notes = body.notes
+    qt.updated_at = _now()
+    db.commit()
+    db.refresh(qt)
+    return _serialize_quote(qt)
+
+
+@app.patch("/api/quotes/{quote_id}/status")
+def patch_quote_status(quote_id: int, body: dict, db: Session = Depends(get_db)):
+    qt = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not qt:
+        raise HTTPException(404, "Devis non trouvé")
+    qt.status = body.get("status", qt.status)
+    qt.updated_at = _now()
+    db.commit()
+    return {"id": qt.id, "status": qt.status}
+
+
+@app.post("/api/quotes/{quote_id}/convert")
+def convert_quote_to_invoice(quote_id: int, db: Session = Depends(get_db)):
+    qt = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not qt:
+        raise HTTPException(404, "Devis non trouvé")
+    inv = Invoice(
+        number=_next_invoice_number(db),
+        client_id=qt.client_id,
+        project_id=qt.project_id,
+        amount_ht=qt.amount_ht,
+        tva_rate=qt.tva_rate,
+        status="brouillon",
+        issued_date=_now(),
+        notes=f"Converti depuis le devis {qt.number}",
+        created_at=_now(),
+        updated_at=_now(),
+    )
+    db.add(inv)
+    qt.status = "accepte"
+    qt.updated_at = _now()
+    db.commit()
+    db.refresh(inv)
+    return {"invoice_id": inv.id, "invoice_number": inv.number}
+
+
+@app.delete("/api/quotes/{quote_id}", status_code=204)
+def delete_quote(quote_id: int, db: Session = Depends(get_db)):
+    qt = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not qt:
+        raise HTTPException(404, "Devis non trouvé")
+    db.delete(qt)
+    db.commit()
+
+
+def _serialize_quote(qt: Quote) -> dict:
+    return {
+        "id": qt.id,
+        "number": qt.number,
+        "client_id": qt.client_id,
+        "client_name": qt.client.name if qt.client else "",
+        "project_id": qt.project_id,
+        "project_name": qt.project.name if qt.project else None,
+        "title": qt.title,
+        "amount_ht": qt.amount_ht,
+        "tva_rate": qt.tva_rate,
+        "amount_ttc": round(qt.amount_ht * (1 + qt.tva_rate / 100), 2),
+        "status": qt.status,
+        "valid_until": qt.valid_until.isoformat() if qt.valid_until else None,
+        "description": qt.description,
+        "notes": qt.notes,
+        "created_at": qt.created_at.isoformat() if qt.created_at else None,
+        "updated_at": qt.updated_at.isoformat() if qt.updated_at else None,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# SUIVI DU TEMPS (TIME ENTRIES)
+# ═══════════════════════════════════════════════════════════════
+
+class TimeEntryCreate(BaseModel):
+    project_id: int
+    client_id: int
+    date: Optional[str] = None
+    duration_minutes: int
+    description: Optional[str] = None
+
+
+@app.get("/api/time-entries")
+def list_time_entries(
+    project_id: Optional[int] = Query(None),
+    client_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    q = db.query(TimeEntry).options(joinedload(TimeEntry.project), joinedload(TimeEntry.client))
+    if project_id:
+        q = q.filter(TimeEntry.project_id == project_id)
+    if client_id:
+        q = q.filter(TimeEntry.client_id == client_id)
+    entries = q.order_by(TimeEntry.date.desc()).all()
+    return [_serialize_time_entry(e) for e in entries]
+
+
+@app.post("/api/time-entries", status_code=201)
+def create_time_entry(body: TimeEntryCreate, db: Session = Depends(get_db)):
+    entry_date = _now()
+    if body.date:
+        try:
+            entry_date = datetime.fromisoformat(body.date.replace("Z", "+00:00"))
+        except Exception:
+            pass
+    e = TimeEntry(
+        project_id=body.project_id,
+        client_id=body.client_id,
+        date=entry_date,
+        duration_minutes=body.duration_minutes,
+        description=body.description,
+        created_at=_now(),
+    )
+    db.add(e)
+    db.commit()
+    db.refresh(e)
+    return _serialize_time_entry(e)
+
+
+@app.delete("/api/time-entries/{entry_id}", status_code=204)
+def delete_time_entry(entry_id: int, db: Session = Depends(get_db)):
+    e = db.query(TimeEntry).filter(TimeEntry.id == entry_id).first()
+    if not e:
+        raise HTTPException(404, "Entrée non trouvée")
+    db.delete(e)
+    db.commit()
+
+
+def _serialize_time_entry(e: TimeEntry) -> dict:
+    return {
+        "id": e.id,
+        "project_id": e.project_id,
+        "project_name": e.project.name if e.project else "",
+        "client_id": e.client_id,
+        "client_name": e.client.name if e.client else "",
+        "date": e.date.isoformat() if e.date else None,
+        "duration_minutes": e.duration_minutes,
+        "description": e.description,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════

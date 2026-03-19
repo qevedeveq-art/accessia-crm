@@ -152,3 +152,37 @@ class Diagnostic(Base):
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     client = relationship("Client", back_populates="diagnostics")
+
+
+class Quote(Base):
+    __tablename__ = "quotes"
+    id = Column(Integer, primary_key=True, index=True)
+    number = Column(String(40), unique=True, nullable=False, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    title = Column(String(300), nullable=False)
+    amount_ht = Column(Float, nullable=False)
+    tva_rate = Column(Float, default=20.0)
+    status = Column(String(20), default="brouillon", index=True)  # brouillon, envoye, accepte, refuse, expire
+    valid_until = Column(DateTime, nullable=True)
+    description = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    client = relationship("Client")
+    project = relationship("Project")
+
+
+class TimeEntry(Base):
+    __tablename__ = "time_entries"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(DateTime, default=_utcnow)
+    duration_minutes = Column(Integer, nullable=False)
+    description = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+    project = relationship("Project")
+    client = relationship("Client")

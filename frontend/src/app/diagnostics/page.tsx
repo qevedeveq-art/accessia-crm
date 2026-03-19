@@ -109,7 +109,7 @@ export default function DiagnosticsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardCheck size={24} className="text-sensia-600" />
+            <ClipboardCheck size={24} className="text-accessia-600" />
             Diagnostics
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -193,13 +193,13 @@ export default function DiagnosticsPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <Link href={`/diagnostics/${d.id}`} className="font-semibold text-gray-900 hover:text-sensia-600 truncate">
+                          <Link href={`/diagnostics/${d.id}`} className="font-semibold text-gray-900 hover:text-accessia-600 truncate">
                             {d.title}
                           </Link>
                           <Badge status={d.status} />
                         </div>
                         <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span>Client : <Link href={`/clients/${d.client_id}`} className="text-sensia-600 hover:underline">{d.client_name}</Link></span>
+                          <span>Client : <Link href={`/clients/${d.client_id}`} className="text-accessia-600 hover:underline">{d.client_name}</Link></span>
                           <span>Réf : DIAG-{String(d.id).padStart(4, '0')}</span>
                           {d.created_at && <span>{new Date(d.created_at).toLocaleDateString('fr-FR')}</span>}
                           {score != null && (
@@ -208,7 +208,7 @@ export default function DiagnosticsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <Link href={`/diagnostics/${d.id}`} className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-sensia-600" title="Ouvrir">
+                        <Link href={`/diagnostics/${d.id}`} className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-accessia-600" title="Ouvrir">
                           <ExternalLink size={15} />
                         </Link>
                         {d.status === 'termine' && (
@@ -270,11 +270,11 @@ export default function DiagnosticsPage() {
                           title: f.title || (t === 'cyber' ? 'Diagnostic Cybersécurité' : 'Diagnostic Opportunités IA'),
                         }))}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
-                          selected ? 'border-sensia-500 bg-sensia-50' : 'border-gray-200 hover:border-gray-300'
+                          selected ? 'border-accessia-500 bg-accessia-50' : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        <Icon size={20} className={selected ? 'text-sensia-600' : 'text-gray-400'} />
-                        <p className={`font-medium text-sm mt-1 ${selected ? 'text-sensia-700' : 'text-gray-700'}`}>{info.label}</p>
+                        <Icon size={20} className={selected ? 'text-accessia-600' : 'text-gray-400'} />
+                        <p className={`font-medium text-sm mt-1 ${selected ? 'text-accessia-700' : 'text-gray-700'}`}>{info.label}</p>
                         <p className="text-[11px] text-gray-400 mt-0.5">
                           {t === 'cyber' ? 'Basé sur le guide ANSSI' : 'Quick wins & opportunités'}
                         </p>

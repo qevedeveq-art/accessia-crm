@@ -59,7 +59,7 @@ export default function SharedDiagnosticPage() {
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-[#2850ff] flex items-center justify-center text-white font-bold text-sm">S</div>
           <div>
-            <p className="font-semibold text-sm text-gray-900">SENSIA DVZ</p>
+            <p className="font-semibold text-sm text-gray-900">ACCESSIA Pro</p>
             <p className="text-[10px] text-gray-400 uppercase tracking-widest">Conseil IA · PME & Entrepreneurs</p>
           </div>
         </div>
@@ -126,8 +126,8 @@ export default function SharedDiagnosticPage() {
 
         {/* Footer */}
         <div className="text-center text-xs text-gray-400 py-4 border-t">
-          <p>Rapport généré par SENSIA Manager — Ce document est confidentiel</p>
-          <p className="mt-1">SENSIA DVZ © 2026 · Conseil IA · PME & Entrepreneurs</p>
+          <p>Rapport généré par ACCESSIA Pro — Ce document est confidentiel</p>
+          <p className="mt-1">ACCESSIA Pro © 2026 · Conseil IA · PME & Entrepreneurs</p>
         </div>
       </div>
     </div>
