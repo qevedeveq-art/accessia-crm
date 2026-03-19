@@ -1121,7 +1121,7 @@ def generate_diagnostic_pdf(diag_id: int, db: Session = Depends(get_db)):
     results = json.loads(d.results)
     company_info = json.loads(d.company_info) if d.company_info else {}
     client_name = d.client.name if d.client else "Client"
-    diag_type_label = "Cybersécurité" if d.type == "cyber" else "Opportunités IA"
+    diag_type_label = "Cybersécurité" if d.type == "cyber" else "Conformité RGPD" if d.type == "rgpd" else "Opportunités IA"
     now_str = _now().strftime("%d/%m/%Y")
 
     # Construire le HTML du rapport

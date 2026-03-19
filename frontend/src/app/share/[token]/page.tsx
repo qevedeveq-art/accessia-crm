@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { getSharedDiagnostic, getDiagnosticPdfUrl, DiagnosticItem } from '@/lib/api'
-import { Shield, Brain, Download, ExternalLink } from 'lucide-react'
+import { Shield, Brain, Scale, Download, ExternalLink } from 'lucide-react'
 
 export default function SharedDiagnosticPage() {
   const params = useParams()
@@ -49,8 +49,8 @@ export default function SharedDiagnosticPage() {
   const scoreColor = globalScore >= 70 ? 'text-green-600' : globalScore >= 40 ? 'text-amber-600' : 'text-red-600'
   const scoreBg = globalScore >= 70 ? 'from-green-50 to-emerald-50' : globalScore >= 40 ? 'from-amber-50 to-yellow-50' : 'from-red-50 to-rose-50'
   const scoreLabel = globalScore >= 70 ? 'Conforme' : globalScore >= 40 ? 'Amélioration nécessaire' : 'Critique'
-  const TypeIcon = diag.type === 'cyber' ? Shield : Brain
-  const typeLabel = diag.type === 'cyber' ? 'Cybersécurité' : 'Opportunités IA'
+  const TypeIcon = diag.type === 'cyber' ? Shield : diag.type === 'rgpd' ? Scale : Brain
+  const typeLabel = diag.type === 'cyber' ? 'Cybersécurité' : diag.type === 'rgpd' ? 'Conformité RGPD' : 'Opportunités IA'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -69,7 +69,7 @@ export default function SharedDiagnosticPage() {
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <TypeIcon size={18} className={diag.type === 'cyber' ? 'text-red-600' : 'text-violet-600'} />
+                <TypeIcon size={18} className={diag.type === 'cyber' ? 'text-red-600' : diag.type === 'rgpd' ? 'text-blue-600' : 'text-violet-600'} />
                 <span className="text-xs font-medium text-gray-500">{typeLabel}</span>
               </div>
               <h1 className="text-xl font-bold text-gray-900">{diag.title}</h1>

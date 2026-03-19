@@ -9,7 +9,7 @@ import {
 import Link from 'next/link'
 import {
   ArrowLeft, Download, Share2, Copy, Check, ChevronLeft, ChevronRight,
-  Shield, Brain, AlertTriangle, CheckCircle2, Clock, ExternalLink,
+  Shield, Brain, Scale, AlertTriangle, CheckCircle2, Clock, ExternalLink,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════
@@ -534,7 +534,7 @@ export default function DiagnosticDetailPage() {
           title: rec,
           client_id: diag.client_id,
           type: 'relance',
-          priority: section.score_pct < 50 ? 'haute' : 'normale',
+          priority: section.score_pct < 50 ? 'haute' : 'normal',
           due_date: dueIso,
         }))
       }
@@ -546,7 +546,7 @@ export default function DiagnosticDetailPage() {
   }
 
   const results = diag.results ?? computeResults(sections, answers)
-  const TypeIcon = diag.type === 'cyber' ? Shield : diag.type === 'rgpd' ? Shield : Brain
+  const TypeIcon = diag.type === 'cyber' ? Shield : diag.type === 'rgpd' ? Scale : Brain
   const typeColor = diag.type === 'cyber' ? 'text-red-600' : diag.type === 'rgpd' ? 'text-blue-600' : 'text-violet-600'
 
   // ─── RAPPORT ────────────────────────────────────────

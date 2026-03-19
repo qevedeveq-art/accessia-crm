@@ -6,11 +6,11 @@ import Link from 'next/link'
 import { Plus, Search, FolderKanban } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 
-const TYPE_OPTS   = ['diagnostic', 'integration', 'formation', 'mco', 'pack_pme', 'cyber', 'ia']
+const TYPE_OPTS   = ['diagnostic', 'integration', 'formation', 'mco', 'pack_pme']
 
 const PROJECT_TEMPLATES = [
-  { id: 'cyber', label: 'Diagnostic Cyber', icon: '🔐', type: 'cyber', phase: 1, budget: 8000, description: 'Audit de sécurité informatique : analyse des vulnérabilités, RGPD, PCA/PRA.' },
-  { id: 'ia', label: 'Accompagnement IA', icon: '🤖', type: 'ia', phase: 1, budget: 30000, description: 'Cadrage stratégique IA, sélection use cases, pilote et déploiement.' },
+  { id: 'cyber', label: 'Diagnostic Cyber', icon: '🔐', type: 'diagnostic', phase: 1, budget: 8000, description: 'Audit de sécurité informatique : analyse des vulnérabilités, RGPD, PCA/PRA.' },
+  { id: 'ia', label: 'Accompagnement IA', icon: '🤖', type: 'integration', phase: 1, budget: 30000, description: 'Cadrage stratégique IA, sélection use cases, pilote et déploiement.' },
   { id: 'formation', label: 'Formation IA', icon: '🎓', type: 'formation', phase: 1, budget: 5000, description: 'Formation IA sur mesure pour les équipes : sensibilisation et ateliers pratiques.' },
   { id: 'pack_pme', label: 'Pack PME', icon: '🏢', type: 'pack_pme', phase: 1, budget: 12000, description: 'Pack complet transformation numérique pour PME : diagnostic + formation + accompagnement.' },
 ]

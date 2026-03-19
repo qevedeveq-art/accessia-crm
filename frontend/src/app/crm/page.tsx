@@ -9,7 +9,7 @@ import {
 import Link from 'next/link'
 import {
   Phone, Mail, Users2, StickyNote, Plus, X, Trash2,
-  CheckCircle2, Clock, AlertTriangle, ArrowRight, GripVertical,
+  CheckCircle2, Clock, AlertTriangle, ArrowRight,
 } from 'lucide-react'
 
 // ─── CONSTANTES ──────────────────────────────────────────
