@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { getClients, createClient, searchCompany, Client, ClientCreate } from '@/lib/api'
+import { getClients, createClient, searchCompany, Client, ClientCreate, CompanySearchResult } from '@/lib/api'
 import Link from 'next/link'
-import { Plus, Search, Building2, Mail, Phone, Loader2, Wand2 } from 'lucide-react'
+import { Plus, Search, Building2, Mail, Phone, Loader2, Wand2, MapPin } from 'lucide-react'
 
 const STATUS_OPTS = ['prospect', 'active', 'inactive']
 const TYPE_OPTS   = ['micro', 'pme', 'eti', 'grand_compte']
@@ -39,6 +39,12 @@ function ClientsContent() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [siretSearching, setSiretSearching] = useState(false)
+  const [nameSuggestions, setNameSuggestions] = useState<CompanySearchResult[]>([])
+  const [nameSearching, setNameSearching] = useState(false)
+  const [showNameDropdown, setShowNameDropdown] = useState(false)
+  const [siretCandidates, setSiretCandidates] = useState<CompanySearchResult[]>([])
+  const nameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   const load = () =>
     getClients({ search: search || undefined, status: filter || undefined })
@@ -59,24 +65,50 @@ function ClientsContent() {
     }
   }, [searchParams])
 
+  const typeMap: Record<string, string> = { GE: 'grand_compte', ETI: 'eti', PME: 'pme', TPE: 'micro' }
+
+  const applyCompany = (c: CompanySearchResult) => {
+    setForm(f => ({
+      ...f,
+      name: c.name,
+      siret: c.siret_siege || f.siret,
+      address: c.address ? `${c.address}${c.postal_code ? ` ${c.postal_code} ${c.city}` : ''}` : f.address,
+      type: typeMap[c.categorie] || f.type || 'pme',
+    }))
+    setShowNameDropdown(false)
+    setNameSuggestions([])
+    setSiretCandidates([])
+  }
+
   const fillFromSiret = async () => {
     if (!form.siret || form.siret.replace(/\s/g, '').length < 9) return
     setSiretSearching(true)
+    setSiretCandidates([])
     try {
       const data = await searchCompany(form.siret.replace(/\s/g, ''))
-      if (data.results.length > 0) {
-        const c = data.results[0]
-        const typeMap: Record<string, string> = { GE: 'grand_compte', ETI: 'eti', PME: 'pme', TPE: 'micro' }
-        setForm(f => ({
-          ...f,
-          name: f.name || c.name,
-          siret: c.siret_siege || f.siret,
-          address: f.address || (c.address ? `${c.address}${c.postal_code ? ` ${c.postal_code} ${c.city}` : ''}` : ''),
-          type: typeMap[c.categorie] || f.type || 'pme',
-        }))
+      if (data.results.length === 1) {
+        applyCompany(data.results[0])
+      } else if (data.results.length > 1) {
+        setSiretCandidates(data.results)
       }
     } catch { /* silently ignore */ }
     setSiretSearching(false)
+  }
+
+  const handleNameChange = (v: string) => {
+    set('name', v)
+    setShowNameDropdown(false)
+    if (nameDebounce.current) clearTimeout(nameDebounce.current)
+    if (v.trim().length < 2) { setNameSuggestions([]); return }
+    nameDebounce.current = setTimeout(async () => {
+      setNameSearching(true)
+      try {
+        const data = await searchCompany(v.trim())
+        setNameSuggestions(data.results.slice(0, 6))
+        setShowNameDropdown(data.results.length > 0)
+      } catch { setNameSuggestions([]) }
+      setNameSearching(false)
+    }, 400)
   }
 
   const set = (k: keyof ClientCreate, v: string | boolean) =>
@@ -207,11 +239,42 @@ function ClientsContent() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la société *</label>
-                  <input value={form.name} onChange={e => set('name', e.target.value)}
+                <div className="col-span-2 relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nom de la société *
+                    {nameSearching && <Loader2 size={11} className="inline ml-2 animate-spin text-gray-400" />}
+                  </label>
+                  <input
+                    ref={nameInputRef}
+                    value={form.name}
+                    onChange={e => handleNameChange(e.target.value)}
+                    onBlur={() => setTimeout(() => setShowNameDropdown(false), 150)}
+                    onFocus={() => nameSuggestions.length > 0 && setShowNameDropdown(true)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
-                    placeholder="Ex: TechCorp SAS" />
+                    placeholder="Ex: TechCorp SAS (tapez pour rechercher…)"
+                    autoComplete="off"
+                  />
+                  {showNameDropdown && nameSuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      {nameSuggestions.map(c => (
+                        <button
+                          key={c.siren}
+                          type="button"
+                          onMouseDown={() => applyCompany(c)}
+                          className="w-full px-4 py-2.5 text-left hover:bg-accessia-50 transition-colors border-b border-gray-50 last:border-0"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-sm text-gray-900 truncate">{c.name}</span>
+                            <span className="text-xs text-gray-400 shrink-0">{c.categorie}</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <span className="text-xs text-gray-400">{c.naf_label}</span>
+                            {c.city && <span className="text-xs text-gray-400 flex items-center gap-0.5"><MapPin size={10} />{c.city}</span>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -296,6 +359,30 @@ function ClientsContent() {
                     </button>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-1">Entrez un SIREN ou SIRET puis cliquez Auto-fill pour récupérer les données officielles</p>
+                  {siretCandidates.length > 1 && (
+                    <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden">
+                      <p className="px-3 py-1.5 text-xs font-medium text-gray-500 bg-gray-50 border-b border-gray-200">
+                        {siretCandidates.length} résultats — choisissez un établissement :
+                      </p>
+                      {siretCandidates.map(c => (
+                        <button
+                          key={c.siren}
+                          type="button"
+                          onClick={() => applyCompany(c)}
+                          className="w-full px-3 py-2 text-left hover:bg-accessia-50 transition-colors border-b border-gray-50 last:border-0"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-sm text-gray-900 truncate">{c.name}</span>
+                            <span className="text-xs font-mono text-gray-400 shrink-0">{c.siret_siege}</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <span className="text-xs text-gray-400">{c.naf_label}</span>
+                            {c.city && <span className="text-xs text-gray-400 flex items-center gap-0.5"><MapPin size={10} />{c.city}</span>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>
