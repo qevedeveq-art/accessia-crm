@@ -3,6 +3,7 @@ Gestion automatique des dossiers/fichiers ACCESSIA Pro.
 Crée la structure de répertoires et génère les fichiers Markdown
 à partir des données clients/projets.
 """
+import re
 import shutil
 import os
 import logging
@@ -222,6 +223,14 @@ def read_file(path: str) -> str:
     return target.read_text(encoding="utf-8", errors="replace")
 
 
+def write_file(path: str, content: str) -> None:
+    """Écrit un fichier texte (chemin validé par is_safe_path avant appel)."""
+    target = Path(path)
+    if not target.parent.exists():
+        raise FileNotFoundError(f"Dossier parent introuvable : {target.parent}")
+    target.write_text(content, encoding="utf-8")
+
+
 def is_safe_path(path: str) -> bool:
     """Vérifie que le chemin est bien à l'intérieur de SENSIA_BASE et ne contient pas de traversal."""
     try:
@@ -235,3 +244,80 @@ def is_safe_path(path: str) -> bool:
         return True
     except (ValueError, OSError):
         return False
+
+
+# ─── CATALOGUE DES PRESTATIONS ────────────────────────────────────────────────
+
+CATALOGUE_PATH = SENSIA_BASE / "CATALOGUE_OFFRES.md"
+
+
+def _field(section: str, key: str) -> str:
+    m = re.search(rf'\*\*{re.escape(key)} :\*\* (.+)', section)
+    return m.group(1).strip() if m else ''
+
+
+def parse_catalogue() -> list:
+    """Lit CATALOGUE_OFFRES.md et retourne une liste de prestations."""
+    if not CATALOGUE_PATH.exists():
+        return []
+    content = CATALOGUE_PATH.read_text(encoding="utf-8")
+    blocks = re.split(r'\n---\n', content)
+    prestations = []
+    for block in blocks:
+        m = re.search(r'^## (.+)$', block, re.MULTILINE)
+        if not m:
+            continue
+        name = m.group(1).strip()
+        price_raw = _field(block, 'Prix HT')
+        try:
+            price_ht = float(price_raw) if price_raw.replace('.', '').isdigit() else None
+        except ValueError:
+            price_ht = None
+
+        # Description = tout ce qui n'est pas ## heading ni bullet de champ
+        desc_lines = []
+        in_fields = False
+        for line in block.splitlines():
+            if re.match(r'^## ', line):
+                in_fields = True
+                continue
+            if re.match(r'^- \*\*.+\*\*', line):
+                in_fields = True
+                continue
+            if in_fields and line.strip() == '':
+                in_fields = False
+                continue
+            if not in_fields and line.strip():
+                desc_lines.append(line)
+        description = '\n'.join(desc_lines).strip()
+
+        prestations.append({
+            'id': re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_'),
+            'name': name,
+            'category': _field(block, 'Catégorie'),
+            'price_ht': price_ht,
+            'duration': _field(block, 'Durée'),
+            'target': _field(block, 'Cible'),
+            'active': _field(block, 'Actif').lower() == 'oui',
+            'description': description,
+        })
+    return prestations
+
+
+def generate_catalogue(prestations: list) -> str:
+    """Génère le contenu de CATALOGUE_OFFRES.md à partir d'une liste de prestations."""
+    now = datetime.now().strftime('%Y-%m-%d')
+    lines = [f"# Catalogue des Offres — ACCESSIA Pro\n> Dernière mise à jour : {now}\n"]
+    for p in prestations:
+        price_str = str(int(p.get('price_ht') or 0)) if p.get('price_ht') else '0'
+        lines.append(
+            f"\n---\n\n"
+            f"## {p['name']}\n"
+            f"- **Catégorie :** {p.get('category', '')}\n"
+            f"- **Prix HT :** {price_str}\n"
+            f"- **Durée :** {p.get('duration', '')}\n"
+            f"- **Cible :** {p.get('target', '')}\n"
+            f"- **Actif :** {'oui' if p.get('active', True) else 'non'}\n"
+            f"\n{p.get('description', '')}"
+        )
+    return '\n'.join(lines)

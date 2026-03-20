@@ -712,3 +712,39 @@ export const searchCompany = (q: string): Promise<{ results: CompanySearchResult
   isDemoMode()
     ? Promise.resolve(DEMO_COMPANY_SEARCH)
     : request<{ results: CompanySearchResult[]; total: number }>(`/search-company?q=${encodeURIComponent(q)}`)
+
+// ─── FICHIERS — ÉCRITURE ──────────────────────────────────────
+
+export const writeFile = (path: string, content: string) =>
+  isDemoMode()
+    ? Promise.resolve({ ok: true })
+    : request<{ ok: boolean }>('/files/write', { method: 'POST', body: JSON.stringify({ path, content }) })
+
+// ─── PRESTATIONS ─────────────────────────────────────────────
+
+export interface Prestation {
+  id: string
+  name: string
+  category: string
+  price_ht: number | null
+  duration: string
+  target: string
+  active: boolean
+  description: string
+}
+
+const DEMO_PRESTATIONS: Prestation[] = [
+  { id: 'diag_data_ia', name: 'Diag Data IA — BPI France', category: 'Diagnostic', price_ht: 2500, duration: '2 jours', target: 'PME, TPE ≤ 250 salariés', active: true, description: 'Audit de maturité IA financé à 50 % par BPI France.' },
+  { id: 'audit_rgpd', name: 'Audit RGPD & Conformité', category: 'Audit', price_ht: 3500, duration: '3 jours', target: 'PME, ETI, cabinets', active: true, description: 'Audit complet de conformité RGPD.' },
+  { id: 'accompagnement_3m', name: 'Accompagnement IA — 3 mois', category: 'Accompagnement', price_ht: 18000, duration: '3 mois', target: 'PME, ETI', active: true, description: "Accompagnement sur 3 mois pour la mise en place d'une stratégie IA." },
+]
+
+export const getPrestations = () =>
+  isDemoMode()
+    ? Promise.resolve(DEMO_PRESTATIONS)
+    : request<Prestation[]>('/prestations')
+
+export const savePrestations = (items: Prestation[]) =>
+  isDemoMode()
+    ? Promise.resolve({ ok: true, count: items.length })
+    : request<{ ok: boolean; count: number }>('/prestations', { method: 'PUT', body: JSON.stringify(items) })

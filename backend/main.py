@@ -859,6 +859,47 @@ def read_file(path: str = Query(..., max_length=500)):
         raise HTTPException(status_code=413, detail=str(e))
 
 
+class FileWriteRequest(BaseModel):
+    path: str
+    content: str
+
+
+@app.post("/api/files/write")
+def write_file(data: FileWriteRequest):
+    if not file_service.is_safe_path(data.path):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    try:
+        file_service.write_file(data.path, data.content)
+        return {"ok": True}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/prestations")
+def get_prestations():
+    return file_service.parse_catalogue()
+
+
+class PrestationItem(BaseModel):
+    id: str
+    name: str
+    category: str = ""
+    price_ht: Optional[float] = None
+    duration: str = ""
+    target: str = ""
+    active: bool = True
+    description: str = ""
+
+
+@app.put("/api/prestations")
+def save_prestations(items: List[PrestationItem]):
+    content = file_service.generate_catalogue([p.model_dump() for p in items])
+    file_service.CATALOGUE_PATH.write_text(content, encoding="utf-8")
+    return {"ok": True, "count": len(items)}
+
+
 # ═══════════════════════════════════════════════════════════════
 # CRM — ACTIVITÉS
 # ═══════════════════════════════════════════════════════════════
