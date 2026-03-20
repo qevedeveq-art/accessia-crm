@@ -327,18 +327,46 @@ function BudgetSimulator({ grants }: { grants: GrantInfo[] }) {
 
 // ─── Opportunity Panel ────────────────────────────────────────
 
-function OpportunityPanel({ company }: { company: CompanySearchResult }) {
+function OpportunityPanel({ company, onCreateClient }: {
+  company: CompanySearchResult
+  onCreateClient: () => void
+}) {
+  const router = useRouter()
   const opp = computeOpportunity(company)
   const eligible = company.grants.filter(g => g.eligible)
   const grantsTotal = totalEstimated(company.grants)
 
   const colors = {
-    high:   { wrap: 'border-green-200 bg-green-50',   text: 'text-green-700',  badge: 'bg-green-100 text-green-700',  cell: 'bg-white/70' },
-    medium: { wrap: 'border-yellow-200 bg-yellow-50', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-700', cell: 'bg-white/70' },
-    low:    { wrap: 'border-gray-200 bg-gray-50',     text: 'text-gray-600',   badge: 'bg-gray-100 text-gray-600',    cell: 'bg-white/70' },
+    high:   { wrap: 'border-green-200 bg-green-50',   text: 'text-green-700',  badge: 'bg-green-100 text-green-700',    cell: 'bg-white/70', btn: 'bg-green-600 hover:bg-green-700 text-white', btnOut: 'border-green-300 text-green-700 hover:bg-green-100' },
+    medium: { wrap: 'border-yellow-200 bg-yellow-50', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-700',  cell: 'bg-white/70', btn: 'bg-yellow-500 hover:bg-yellow-600 text-white', btnOut: 'border-yellow-300 text-yellow-700 hover:bg-yellow-100' },
+    low:    { wrap: 'border-gray-200 bg-gray-50',     text: 'text-gray-600',   badge: 'bg-gray-100 text-gray-600',      cell: 'bg-white/70', btn: 'bg-gray-600 hover:bg-gray-700 text-white',   btnOut: 'border-gray-300 text-gray-600 hover:bg-gray-100' },
   }[opp.confidence]
 
   const badgeLabel = { high: 'Forte opportunité', medium: 'Opportunité à qualifier', low: 'À prospecter' }[opp.confidence]
+
+  const diagHref = `/diagnostics?new=ia&company=${encodeURIComponent(company.name)}`
+
+  // Contextual actions based on opportunity level
+  const actions: { label: string; primary: boolean; action: () => void }[] =
+    opp.confidence === 'high'
+      ? [
+          { label: 'Ouvrir le dossier client', primary: true,  action: onCreateClient },
+          { label: 'Lancer le diagnostic IA',  primary: false, action: () => router.push(diagHref) },
+        ]
+      : opp.label === 'Diagnostic + suivi'
+      ? [
+          { label: 'Lancer le Diag Data IA BPI', primary: true,  action: () => router.push(diagHref) },
+          { label: 'Créer comme prospect',         primary: false, action: onCreateClient },
+        ]
+      : opp.confidence === 'medium'
+      ? [
+          { label: 'Créer comme prospect',    primary: true,  action: onCreateClient },
+          { label: 'Lancer un diagnostic IA', primary: false, action: () => router.push(diagHref) },
+        ]
+      : [
+          { label: 'Proposer un diagnostic',  primary: true,  action: () => router.push(diagHref) },
+          { label: 'Créer comme prospect',     primary: false, action: onCreateClient },
+        ]
 
   return (
     <div className={`border rounded-xl p-4 ${colors.wrap}`}>
@@ -367,9 +395,21 @@ function OpportunityPanel({ company }: { company: CompanySearchResult }) {
         </div>
       </div>
 
-      <p className={`text-xs flex items-center gap-1 ${colors.text} opacity-70`}>
-        <ChevronRight size={11} className="shrink-0" /> {opp.next_step}
-      </p>
+      {/* Actions recommandées */}
+      <div className="flex gap-2 mt-1">
+        {actions.map((a, i) => (
+          <button
+            key={i}
+            onClick={a.action}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+              a.primary ? colors.btn : `border ${colors.btnOut} bg-transparent`
+            }`}
+          >
+            {a.primary ? <ChevronRight size={12} /> : null}
+            {a.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -567,7 +607,7 @@ function CompanyCard({
         <BudgetSimulator grants={company.grants} />
 
         {/* Opportunité commerciale */}
-        <OpportunityPanel company={company} />
+        <OpportunityPanel company={company} onCreateClient={() => onImport(company)} />
 
         <div className="flex gap-2">
           <button
