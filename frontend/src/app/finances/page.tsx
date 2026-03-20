@@ -366,9 +366,9 @@ export default function FinancesPage() {
                 <textarea value={formQuote.description ?? ''} onChange={e => setQt('description', e.target.value)}
                   className="input w-full h-20 resize-none" placeholder="Scope de la prestation…" />
               </div>
-              {formQuote.amount_ht > 0 && (
+              {(formQuote.amount_ht ?? 0) > 0 && (
                 <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-600">
-                  Total TTC : <strong className="text-gray-900">{fmt(formQuote.amount_ht * (1 + (formQuote.tva_rate ?? 20) / 100))}</strong>
+                  Total TTC : <strong className="text-gray-900">{fmt((formQuote.amount_ht ?? 0) * (1 + (formQuote.tva_rate ?? 20) / 100))}</strong>
                 </div>
               )}
             </div>

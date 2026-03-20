@@ -5,9 +5,12 @@ FastAPI + SQLAlchemy + SQLite
 import os
 import json
 import uuid
+import shutil
 import logging
+import subprocess
 import httpx
 from datetime import datetime, timezone, date as date_type
+from pathlib import Path
 from enum import Enum
 from typing import Optional, List
 
@@ -101,6 +104,12 @@ def _run_migrations():
             )
         """)
         # Supprimer les colonnes Twenty obsolètes n'est pas possible en SQLite (pas de DROP COLUMN avant 3.35)
+        # Ajout items_json dans quotes (si absent)
+        try:
+            cursor.execute("ALTER TABLE quotes ADD COLUMN items_json TEXT")
+            conn.commit()
+        except Exception:
+            pass  # colonne déjà présente
         conn.commit()
         conn.close()
         log.info("Migrations terminées avec succès")
@@ -1435,11 +1444,19 @@ def _next_quote_number(db: Session) -> str:
     return f"ACC-DEV-{year}-{count + 1:03d}"
 
 
+class QuoteItemIn(BaseModel):
+    name: str
+    qty: float = 1
+    unit_price: float
+    description: Optional[str] = None
+
+
 class QuoteCreate(BaseModel):
     client_id: int
     project_id: Optional[int] = None
     title: str
-    amount_ht: float
+    items: List[QuoteItemIn] = []
+    amount_ht: Optional[float] = None  # calculé depuis items si non fourni
     tva_rate: float = 20.0
     status: str = "brouillon"
     valid_until: Optional[str] = None
@@ -1474,17 +1491,22 @@ def create_quote(body: QuoteCreate, db: Session = Depends(get_db)):
             valid_until = datetime.fromisoformat(body.valid_until.replace("Z", "+00:00"))
         except Exception:
             pass
+    items_data = [i.model_dump() for i in body.items]
+    amount_ht = body.amount_ht if body.amount_ht is not None else sum(
+        i["qty"] * i["unit_price"] for i in items_data
+    )
     qt = Quote(
         number=_next_quote_number(db),
         client_id=body.client_id,
         project_id=body.project_id,
         title=body.title,
-        amount_ht=body.amount_ht,
+        amount_ht=amount_ht,
         tva_rate=body.tva_rate,
         status=body.status,
         valid_until=valid_until,
         description=body.description,
         notes=body.notes,
+        items_json=json.dumps(items_data, ensure_ascii=False),
         created_at=_now(),
         updated_at=_now(),
     )
@@ -1505,15 +1527,20 @@ def update_quote(quote_id: int, body: QuoteUpdate, db: Session = Depends(get_db)
             valid_until = datetime.fromisoformat(body.valid_until.replace("Z", "+00:00"))
         except Exception:
             pass
+    items_data = [i.model_dump() for i in body.items]
+    amount_ht = body.amount_ht if body.amount_ht is not None else sum(
+        i["qty"] * i["unit_price"] for i in items_data
+    )
     qt.client_id = body.client_id
     qt.project_id = body.project_id
     qt.title = body.title
-    qt.amount_ht = body.amount_ht
+    qt.amount_ht = amount_ht
     qt.tva_rate = body.tva_rate
     qt.status = body.status
     qt.valid_until = valid_until
     qt.description = body.description
     qt.notes = body.notes
+    qt.items_json = json.dumps(items_data, ensure_ascii=False)
     qt.updated_at = _now()
     db.commit()
     db.refresh(qt)
@@ -1566,14 +1593,17 @@ def delete_quote(quote_id: int, db: Session = Depends(get_db)):
 
 
 def _serialize_quote(qt: Quote) -> dict:
+    items = json.loads(qt.items_json) if getattr(qt, 'items_json', None) else []
     return {
         "id": qt.id,
         "number": qt.number,
         "client_id": qt.client_id,
         "client_name": qt.client.name if qt.client else "",
+        "client_address": qt.client.address if qt.client else "",
         "project_id": qt.project_id,
         "project_name": qt.project.name if qt.project else None,
         "title": qt.title,
+        "items": items,
         "amount_ht": qt.amount_ht,
         "tva_rate": qt.tva_rate,
         "amount_ttc": round(qt.amount_ht * (1 + qt.tva_rate / 100), 2),
@@ -2026,6 +2056,374 @@ def search_company(q: str = Query(..., min_length=2)):
 
 
 # ═══════════════════════════════════════════════════════════════
+# DEVIS — PDF / HTML
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/quotes/{quote_id}/pdf")
+def quote_pdf(quote_id: int, db: Session = Depends(get_db)):
+    qt = db.query(Quote).options(joinedload(Quote.client)).filter(Quote.id == quote_id).first()
+    if not qt:
+        raise HTTPException(404, "Devis non trouvé")
+
+    items = json.loads(qt.items_json) if getattr(qt, 'items_json', None) else []
+    client = qt.client
+    tva_amount = round(qt.amount_ht * qt.tva_rate / 100, 2)
+    amount_ttc = round(qt.amount_ht + tva_amount, 2)
+
+    valid_until_str = ""
+    if qt.valid_until:
+        try:
+            valid_until_str = qt.valid_until.strftime("%d/%m/%Y")
+        except Exception:
+            valid_until_str = str(qt.valid_until)[:10]
+
+    created_str = qt.created_at.strftime("%d/%m/%Y") if qt.created_at else datetime.now().strftime("%d/%m/%Y")
+
+    # Tableau des lignes
+    rows_html = ""
+    for item in items:
+        qty = item.get('qty', 1)
+        unit = item.get('unit_price', 0)
+        total = round(qty * unit, 2)
+        desc = item.get('description') or ''
+        rows_html += f"""
+        <tr>
+          <td class="item-name">
+            <strong>{item.get('name', '')}</strong>
+            {f'<br><span class="item-desc">{desc}</span>' if desc else ''}
+          </td>
+          <td class="center">{qty:g}</td>
+          <td class="right">{unit:,.0f} €</td>
+          <td class="right total-col">{total:,.0f} €</td>
+        </tr>"""
+
+    if not items:
+        rows_html = f"""<tr><td colspan="4" class="center" style="color:#6b7280;padding:20px">
+        Montant forfaitaire : {qt.amount_ht:,.0f} € HT</td></tr>"""
+
+    notes_html = f'<div class="notes-box"><strong>Notes :</strong> {qt.notes}</div>' if qt.notes else ''
+    desc_html = f'<p style="color:#374151;font-size:13px;margin-bottom:16px">{qt.description}</p>' if qt.description else ''
+
+    html = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Devis {qt.number}</title>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #fff; padding: 40px; max-width: 860px; margin: 0 auto; }}
+  .header {{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 3px solid #2850ff; }}
+  .logo {{ display: flex; align-items: center; gap: 12px; }}
+  .logo-badge {{ width: 48px; height: 48px; background: #2850ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: 900; }}
+  .logo-text {{ font-size: 22px; font-weight: 800; color: #1f2937; }}
+  .logo-sub {{ font-size: 11px; color: #6b7280; margin-top: 2px; letter-spacing: 0.5px; text-transform: uppercase; }}
+  .header-right {{ text-align: right; }}
+  .devis-title {{ font-size: 28px; font-weight: 800; color: #2850ff; }}
+  .devis-number {{ font-size: 13px; color: #6b7280; margin-top: 4px; }}
+  .parties {{ display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px; }}
+  .party-box {{ background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; }}
+  .party-label {{ font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; font-weight: 700; margin-bottom: 8px; }}
+  .party-name {{ font-size: 16px; font-weight: 700; color: #111827; }}
+  .party-detail {{ font-size: 12px; color: #6b7280; margin-top: 4px; line-height: 1.6; }}
+  .meta {{ display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }}
+  .meta-item {{ background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 16px; }}
+  .meta-label {{ font-size: 10px; text-transform: uppercase; color: #3b82f6; font-weight: 700; letter-spacing: 0.5px; }}
+  .meta-value {{ font-size: 14px; font-weight: 700; color: #1e40af; margin-top: 2px; }}
+  table {{ width: 100%; border-collapse: collapse; margin-bottom: 24px; }}
+  thead th {{ background: #2850ff; color: white; padding: 12px 14px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}
+  thead th:first-child {{ text-align: left; border-radius: 6px 0 0 6px; }}
+  thead th:last-child {{ border-radius: 0 6px 6px 0; }}
+  tbody tr {{ border-bottom: 1px solid #f3f4f6; }}
+  tbody tr:hover {{ background: #f9fafb; }}
+  td {{ padding: 14px; font-size: 13px; vertical-align: top; }}
+  .item-name {{ max-width: 400px; }}
+  .item-desc {{ font-size: 11px; color: #6b7280; font-style: italic; }}
+  .center {{ text-align: center; }}
+  .right {{ text-align: right; }}
+  .total-col {{ font-weight: 600; color: #111827; }}
+  .totals {{ margin-left: auto; width: 280px; margin-bottom: 24px; }}
+  .total-row {{ display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; color: #374151; border-bottom: 1px solid #f3f4f6; }}
+  .total-row:last-child {{ border-bottom: none; font-size: 18px; font-weight: 800; color: #1e40af; padding: 14px 0 0; }}
+  .notes-box {{ background: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 14px; font-size: 12px; color: #713f12; margin-bottom: 24px; }}
+  .conditions {{ background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; font-size: 11px; color: #6b7280; line-height: 1.8; margin-bottom: 32px; }}
+  .footer {{ text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 16px; }}
+  @media print {{
+    body {{ padding: 20px; }}
+    .no-print {{ display: none !important; }}
+    thead th {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #2850ff !important; }}
+    .logo-badge {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+  }}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-badge">A</div>
+    <div>
+      <div class="logo-text">ACCESSIA Pro</div>
+      <div class="logo-sub">Intelligence Artificielle & Transformation Digitale</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="devis-title">DEVIS</div>
+    <div class="devis-number">{qt.number}</div>
+    <div style="font-size:12px;color:#6b7280;margin-top:6px">Émis le {created_str}</div>
+  </div>
+</div>
+
+<div class="parties">
+  <div class="party-box">
+    <div class="party-label">Prestataire</div>
+    <div class="party-name">ACCESSIA Pro</div>
+    <div class="party-detail">
+      Conseil & Intégration IA pour PME<br>
+      contact@accessia.pro<br>
+      www.accessia.pro
+    </div>
+  </div>
+  <div class="party-box">
+    <div class="party-label">Client</div>
+    <div class="party-name">{client.name if client else '—'}</div>
+    <div class="party-detail">
+      {client.contact_name or '' if client else ''}<br>
+      {client.contact_email or '' if client else ''}<br>
+      {client.address or '' if client else ''}
+    </div>
+  </div>
+</div>
+
+<div class="meta">
+  <div class="meta-item">
+    <div class="meta-label">Référence</div>
+    <div class="meta-value">{qt.number}</div>
+  </div>
+  <div class="meta-item">
+    <div class="meta-label">Date d'émission</div>
+    <div class="meta-value">{created_str}</div>
+  </div>
+  {f'<div class="meta-item"><div class="meta-label">Valide jusqu\'au</div><div class="meta-value">{valid_until_str}</div></div>' if valid_until_str else ''}
+  <div class="meta-item">
+    <div class="meta-label">TVA</div>
+    <div class="meta-value">{qt.tva_rate:g}%</div>
+  </div>
+</div>
+
+<h2 style="font-size:15px;font-weight:700;color:#1f2937;margin-bottom:12px">{qt.title}</h2>
+{desc_html}
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align:left">Prestation / Description</th>
+      <th class="center" style="width:70px">Qté</th>
+      <th class="right" style="width:130px">Prix unitaire HT</th>
+      <th class="right" style="width:130px">Total HT</th>
+    </tr>
+  </thead>
+  <tbody>
+    {rows_html}
+  </tbody>
+</table>
+
+<div class="totals">
+  <div class="total-row"><span>Sous-total HT</span><span>{qt.amount_ht:,.0f} €</span></div>
+  <div class="total-row"><span>TVA ({qt.tva_rate:g}%)</span><span>{tva_amount:,.0f} €</span></div>
+  <div class="total-row"><span>TOTAL TTC</span><span>{amount_ttc:,.0f} €</span></div>
+</div>
+
+{notes_html}
+
+<div class="conditions">
+  <strong>Conditions générales :</strong><br>
+  • Tous les prix sont indiqués hors taxes (TVA applicable au taux en vigueur).<br>
+  • Acompte de <strong>30% à la signature</strong>, solde à la livraison.<br>
+  • Devis valable 30 jours à compter de la date d'émission.<br>
+  • Propriété intellectuelle : le code développé est la propriété du client après règlement complet.<br>
+  • Les missions peuvent être financées via OPCO, CPF, BPI France, aides régionales — ACCESSIA accompagne les démarches.<br>
+  • Déplacements hors Île-de-France facturés au réel.
+</div>
+
+<div class="footer">
+  ACCESSIA Pro — Conseil & Intégration IA · contact@accessia.pro · www.accessia.pro<br>
+  Document généré le {datetime.now().strftime("%d/%m/%Y à %H:%M")} — Confidentiel
+</div>
+
+<div class="no-print" style="text-align:center;margin-top:32px">
+  <button onclick="window.print()" style="background:#2850ff;color:white;border:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+    🖨️ Imprimer / Télécharger en PDF
+  </button>
+</div>
+
+</body>
+</html>"""
+
+    try:
+        import weasyprint  # type: ignore
+        pdf_bytes = weasyprint.HTML(string=html).write_pdf()
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="devis_{qt.number}.pdf"'},
+        )
+    except Exception:
+        return Response(
+            content=html.encode("utf-8"),
+            media_type="text/html; charset=utf-8",
+            headers={"Content-Disposition": f'inline; filename="devis_{qt.number}.html"'},
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# SAUVEGARDE (BACKUP)
+# ═══════════════════════════════════════════════════════════════
+
+_DB_PATH = Path(__file__).parent / "sensia.db"
+_BACKUP_DIR = file_service.SENSIA_BASE / "07_ADMINISTRATIF" / "Sauvegardes"
+_LAST_BACKUP_FILE = Path(__file__).parent / ".last_backup"
+
+
+def _create_backup_now() -> dict:
+    """Crée une sauvegarde horodatée de la BDD et du catalogue."""
+    _BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    files = []
+
+    if _DB_PATH.exists():
+        dest = _BACKUP_DIR / f"sensia_{ts}.db"
+        shutil.copy2(_DB_PATH, dest)
+        files.append(str(dest))
+
+    catalogue = file_service.CATALOGUE_PATH
+    if catalogue.exists():
+        dest = _BACKUP_DIR / f"catalogue_{ts}.md"
+        shutil.copy2(catalogue, dest)
+        files.append(str(dest))
+
+    _LAST_BACKUP_FILE.write_text(ts)
+    return {"timestamp": ts, "files": files, "count": len(files)}
+
+
+def _auto_backup_if_needed():
+    """Crée un backup automatique si le dernier date de plus de 24h."""
+    try:
+        if _LAST_BACKUP_FILE.exists():
+            last_ts = _LAST_BACKUP_FILE.read_text().strip()
+            last_dt = datetime.strptime(last_ts, "%Y%m%d_%H%M%S")
+            if (datetime.now() - last_dt).total_seconds() < 86400:
+                return
+        _create_backup_now()
+        log.info("Sauvegarde automatique créée")
+    except Exception as e:
+        log.warning(f"Sauvegarde automatique échouée : {e}")
+
+
+_auto_backup_if_needed()
+
+
+@app.post("/api/backup/create")
+def backup_create():
+    try:
+        result = _create_backup_now()
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"Erreur de sauvegarde : {e}")
+
+
+@app.get("/api/backup/list")
+def backup_list():
+    if not _BACKUP_DIR.exists():
+        return {"backups": [], "last_backup": None}
+    backups = []
+    for f in sorted(_BACKUP_DIR.iterdir(), reverse=True):
+        if f.suffix in (".db", ".md") and not f.name.startswith("."):
+            backups.append({
+                "name": f.name,
+                "size": f.stat().st_size,
+                "created_at": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
+            })
+    last = None
+    if _LAST_BACKUP_FILE.exists():
+        last = _LAST_BACKUP_FILE.read_text().strip()
+    return {"backups": backups[:20], "last_backup": last}
+
+
+@app.post("/api/backup/restore/{filename}")
+def backup_restore(filename: str):
+    if not filename.endswith(".db") or "/" in filename or ".." in filename:
+        raise HTTPException(400, "Nom de fichier invalide")
+    src = _BACKUP_DIR / filename
+    if not src.exists():
+        raise HTTPException(404, "Fichier de sauvegarde introuvable")
+    if _DB_PATH.exists():
+        shutil.copy2(_DB_PATH, _DB_PATH.with_suffix(".db.before_restore"))
+    shutil.copy2(src, _DB_PATH)
+    return {"message": f"Base restaurée depuis {filename}. Redémarrez le serveur."}
+
+
+# ═══════════════════════════════════════════════════════════════
+# MISE À JOUR AUTOMATIQUE
+# ═══════════════════════════════════════════════════════════════
+
+_GIT_REPO = Path(__file__).parent.parent
+
+
+@app.get("/api/update/check")
+def update_check():
+    try:
+        subprocess.run(
+            ["git", "fetch", "--quiet"],
+            cwd=_GIT_REPO, capture_output=True, timeout=10, check=False
+        )
+        local = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=_GIT_REPO, capture_output=True, text=True, timeout=5
+        ).stdout.strip()
+        remote = subprocess.run(
+            ["git", "rev-parse", "@{u}"],
+            cwd=_GIT_REPO, capture_output=True, text=True, timeout=5
+        ).stdout.strip()
+        if not remote:
+            return {"up_to_date": True, "commits_behind": 0, "latest_message": None, "error": "Pas de remote configuré"}
+        behind_log = subprocess.run(
+            ["git", "log", "--oneline", f"{local}..{remote}"],
+            cwd=_GIT_REPO, capture_output=True, text=True, timeout=5
+        ).stdout.strip()
+        lines = [l for l in behind_log.splitlines() if l]
+        return {
+            "up_to_date": local == remote,
+            "commits_behind": len(lines),
+            "latest_message": lines[0] if lines else None,
+        }
+    except Exception as e:
+        return {"up_to_date": True, "commits_behind": 0, "latest_message": None, "error": str(e)}
+
+
+@app.post("/api/update/apply")
+def update_apply():
+    try:
+        pull = subprocess.run(
+            ["git", "pull", "--rebase"],
+            cwd=_GIT_REPO, capture_output=True, text=True, timeout=60
+        )
+        if pull.returncode != 0:
+            raise HTTPException(500, f"git pull échoué : {pull.stderr}")
+        # pip install
+        req = _GIT_REPO / "backend" / "requirements.txt"
+        if req.exists():
+            subprocess.run(["pip", "install", "-r", str(req), "-q"],
+                           capture_output=True, timeout=120, check=False)
+        return {
+            "message": "Mise à jour appliquée. Redémarrez le serveur backend pour activer les changements.",
+            "output": pull.stdout.strip(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Erreur de mise à jour : {e}")
+
+
+# ═══════════════════════════════════════════════════════════════
 # HEALTH CHECK
 # ═══════════════════════════════════════════════════════════════
 
@@ -2033,5 +2431,5 @@ def search_company(q: str = Query(..., min_length=2)):
 def health():
     return {
         "status": "ok",
-        "version": "1.1.0",
+        "version": "1.2.0",
     }

@@ -290,11 +290,25 @@ def parse_catalogue() -> list:
         if not m:
             continue
         name = m.group(1).strip()
+
         price_raw = _field(block, 'Prix HT')
         try:
-            price_ht = float(price_raw) if price_raw.replace('.', '').isdigit() else None
+            price_ht = float(price_raw) if re.match(r'^[\d.]+$', price_raw) else None
         except ValueError:
             price_ht = None
+
+        price_max_raw = _field(block, 'Prix max HT')
+        try:
+            price_max = float(price_max_raw) if re.match(r'^[\d.]+$', price_max_raw) else None
+        except ValueError:
+            price_max = None
+
+        # Listes (séparées par ' | ')
+        deliverables_raw = _field(block, 'Livrables')
+        deliverables = [d.strip() for d in deliverables_raw.split('|') if d.strip()] if deliverables_raw else []
+
+        financing_raw = _field(block, 'Financement')
+        financing = [f.strip() for f in financing_raw.split('|') if f.strip()] if financing_raw else []
 
         # Description = tout ce qui n'est pas ## heading ni bullet de champ
         desc_lines = []
@@ -318,10 +332,13 @@ def parse_catalogue() -> list:
             'name': name,
             'category': _field(block, 'Catégorie'),
             'price_ht': price_ht,
+            'price_max': price_max,
             'duration': _field(block, 'Durée'),
             'target': _field(block, 'Cible'),
             'active': _field(block, 'Actif').lower() == 'oui',
             'description': description,
+            'deliverables': deliverables,
+            'financing': financing,
         })
     return prestations
 
@@ -332,14 +349,26 @@ def generate_catalogue(prestations: list) -> str:
     lines = [f"# Catalogue des Offres — ACCESSIA Pro\n> Dernière mise à jour : {now}\n"]
     for p in prestations:
         price_str = str(int(p.get('price_ht') or 0)) if p.get('price_ht') else '0'
-        lines.append(
+        price_max_str = str(int(p.get('price_max'))) if p.get('price_max') else ''
+        deliverables_str = ' | '.join(p.get('deliverables') or [])
+        financing_str = ' | '.join(p.get('financing') or [])
+        block = (
             f"\n---\n\n"
             f"## {p['name']}\n"
             f"- **Catégorie :** {p.get('category', '')}\n"
             f"- **Prix HT :** {price_str}\n"
+        )
+        if price_max_str:
+            block += f"- **Prix max HT :** {price_max_str}\n"
+        block += (
             f"- **Durée :** {p.get('duration', '')}\n"
             f"- **Cible :** {p.get('target', '')}\n"
             f"- **Actif :** {'oui' if p.get('active', True) else 'non'}\n"
-            f"\n{p.get('description', '')}"
         )
+        if deliverables_str:
+            block += f"- **Livrables :** {deliverables_str}\n"
+        if financing_str:
+            block += f"- **Financement :** {financing_str}\n"
+        block += f"\n{p.get('description', '')}"
+        lines.append(block)
     return '\n'.join(lines)

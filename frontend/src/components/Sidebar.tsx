@@ -18,6 +18,7 @@ import {
   BarChart2,
   SearchCheck,
   Package,
+  Receipt,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { isDemoMode, enableDemoMode, disableDemoMode, DEMO_KEY } from '@/lib/api'
@@ -26,6 +27,7 @@ const nav = [
   { href: '/',            label: 'Dashboard',       icon: LayoutDashboard },
   { href: '/clients',     label: 'Clients',         icon: Users },
   { href: '/projects',    label: 'Projets',         icon: FolderKanban },
+  { href: '/devis',       label: 'Devis',           icon: Receipt },
   { href: '/finances',    label: 'Finances',        icon: CreditCard },
   { href: '/diagnostics', label: 'Diagnostics',     icon: ClipboardCheck },
   { href: '/recherche',   label: 'Prospection IA',  icon: SearchCheck },

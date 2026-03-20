@@ -27,7 +27,7 @@ function catStyle(cat: string) {
 // ─── Blank prestation ─────────────────────────────────────────
 
 function blank(): Prestation {
-  return { id: '', name: '', category: 'Diagnostic', price_ht: null, duration: '', target: '', active: true, description: '' }
+  return { id: '', name: '', category: 'Diagnostic', price_ht: null, price_max: null, duration: '', target: '', active: true, description: '', deliverables: [], financing: [] }
 }
 
 // ─── Edit Modal ───────────────────────────────────────────────
@@ -40,12 +40,16 @@ function EditModal({
   onClose: () => void
 }) {
   const [form, setForm] = useState<Prestation>({ ...prestation })
+  const [deliverablesText, setDeliverablesText] = useState((prestation.deliverables || []).join('\n'))
+  const [financingText, setFinancingText] = useState((prestation.financing || []).join('\n'))
   const set = (k: keyof Prestation, v: any) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSave = () => {
     if (!form.name.trim()) return
     const id = form.id || form.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-    onSave({ ...form, id })
+    const deliverables = deliverablesText.split('\n').map(s => s.trim()).filter(Boolean)
+    const financing = financingText.split('\n').map(s => s.trim()).filter(Boolean)
+    onSave({ ...form, id, deliverables, financing })
   }
 
   return (
@@ -99,7 +103,7 @@ function EditModal({
             </div>
           </div>
 
-          {/* Prix + Durée */}
+          {/* Prix min + Prix max */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Prix HT (€)</label>
@@ -114,13 +118,27 @@ function EditModal({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Durée</label>
-              <input
-                value={form.duration} onChange={e => set('duration', e.target.value)}
-                placeholder="Ex. 2 jours, 3 mois…"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 outline-none"
-              />
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Prix max HT (€) <span className="font-normal text-gray-300">optionnel</span></label>
+              <div className="relative">
+                <Euro size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  type="number" min="0"
+                  value={form.price_max ?? ''} onChange={e => set('price_max', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="Fourchette haute"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 outline-none"
+                />
+              </div>
             </div>
+          </div>
+
+          {/* Durée */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Durée</label>
+            <input
+              value={form.duration} onChange={e => set('duration', e.target.value)}
+              placeholder="Ex. 2 jours, 3 mois…"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 outline-none"
+            />
           </div>
 
           {/* Cible */}
@@ -138,8 +156,32 @@ function EditModal({
             <label className="block text-xs font-semibold text-gray-500 mb-1">Description</label>
             <textarea
               value={form.description} onChange={e => set('description', e.target.value)}
-              rows={4}
-              placeholder="Décrivez le contenu et les livrables de cette prestation…"
+              rows={3}
+              placeholder="Décrivez le contenu et les objectifs de cette prestation…"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 outline-none resize-none"
+            />
+          </div>
+
+          {/* Livrables */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Livrables <span className="font-normal text-gray-300">un par ligne</span></label>
+            <textarea
+              value={deliverablesText}
+              onChange={e => setDeliverablesText(e.target.value)}
+              rows={3}
+              placeholder={'Rapport de diagnostic\nRoadmap priorisée\nPrésentation décideurs'}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 outline-none resize-none"
+            />
+          </div>
+
+          {/* Financement */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Financement éligible <span className="font-normal text-gray-300">un par ligne</span></label>
+            <textarea
+              value={financingText}
+              onChange={e => setFinancingText(e.target.value)}
+              rows={2}
+              placeholder={'BPI France\nOPCO\nChèques France Num'}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 outline-none resize-none"
             />
           </div>
@@ -174,7 +216,9 @@ function PrestationCard({
   const [expanded, setExpanded] = useState(false)
   const c = catStyle(prestation.category)
   const priceLabel = prestation.price_ht
-    ? `${prestation.price_ht.toLocaleString('fr-FR')} € HT`
+    ? prestation.price_max && prestation.price_max > prestation.price_ht
+      ? `${prestation.price_ht.toLocaleString('fr-FR')} – ${prestation.price_max.toLocaleString('fr-FR')} € HT`
+      : `${prestation.price_ht.toLocaleString('fr-FR')} € HT`
     : 'Sur devis'
 
   return (
@@ -243,6 +287,17 @@ function PrestationCard({
               </button>
             )}
           </>
+        )}
+
+        {/* Financement badges */}
+        {prestation.financing && prestation.financing.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {prestation.financing.map(f => (
+              <span key={f} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
+                {f}
+              </span>
+            ))}
+          </div>
         )}
 
         {/* Toggle active */}

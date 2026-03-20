@@ -350,7 +350,7 @@ export const getQuotes = (params?: { client_id?: number; status?: string }) => {
 
 export const createQuote = (data: QuoteCreate) =>
   isDemoMode()
-    ? Promise.resolve({ id: 99, number: 'ACC-DEV-2026-099', amount_ttc: data.amount_ht * 1.2, ...data } as Quote)
+    ? Promise.resolve({ id: 99, number: 'ACC-DEV-2026-099', amount_ttc: (data.amount_ht ?? 0) * 1.2, ...data } as Quote)
     : request<Quote>('/quotes', { method: 'POST', body: JSON.stringify(data) })
 
 export const updateQuote = (id: number, data: QuoteCreate) =>
@@ -640,14 +640,23 @@ export interface FileItem {
   extension?: string
 }
 
+export interface QuoteItem {
+  name: string
+  qty: number
+  unit_price: number
+  description?: string
+}
+
 export interface Quote {
   id: number
   number: string
   client_id: number
   client_name?: string
+  client_address?: string
   project_id?: number
   project_name?: string
   title: string
+  items: QuoteItem[]
   amount_ht: number
   amount_ttc: number
   tva_rate: number
@@ -663,7 +672,8 @@ export interface QuoteCreate {
   client_id: number
   project_id?: number
   title: string
-  amount_ht: number
+  items?: QuoteItem[]
+  amount_ht?: number
   tva_rate?: number
   status?: string
   valid_until?: string
@@ -758,10 +768,13 @@ export interface Prestation {
   name: string
   category: string
   price_ht: number | null
+  price_max?: number | null
   duration: string
   target: string
   active: boolean
   description: string
+  deliverables?: string[]
+  financing?: string[]
 }
 
 const DEMO_PRESTATIONS: Prestation[] = [
@@ -791,3 +804,43 @@ export const savePrestations = (items: Prestation[]) =>
   isDemoMode()
     ? Promise.resolve({ ok: true, count: items.length })
     : request<{ ok: boolean; count: number }>('/prestations', { method: 'PUT', body: JSON.stringify(items) })
+
+export const getQuotePdfUrl = (id: number) => `${BASE}/quotes/${id}/pdf`
+
+// ─── SAUVEGARDE ───────────────────────────────────────────────
+
+export interface BackupInfo {
+  name: string
+  size: number
+  created_at: string
+}
+
+export const createBackup = () =>
+  isDemoMode()
+    ? Promise.resolve({ timestamp: new Date().toISOString(), files: [], count: 0 })
+    : request<{ timestamp: string; files: string[]; count: number }>('/backup/create', { method: 'POST' })
+
+export const listBackups = () =>
+  isDemoMode()
+    ? Promise.resolve({ backups: [] as BackupInfo[], last_backup: null as string | null })
+    : request<{ backups: BackupInfo[]; last_backup: string | null }>('/backup/list')
+
+export const restoreBackup = (filename: string) =>
+  request<{ message: string }>(`/backup/restore/${filename}`, { method: 'POST' })
+
+// ─── MISE À JOUR ──────────────────────────────────────────────
+
+export interface UpdateStatus {
+  up_to_date: boolean
+  commits_behind: number
+  latest_message: string | null
+  error?: string
+}
+
+export const checkUpdate = () =>
+  isDemoMode()
+    ? Promise.resolve({ up_to_date: true, commits_behind: 0, latest_message: null } as UpdateStatus)
+    : request<UpdateStatus>('/update/check')
+
+export const applyUpdate = () =>
+  request<{ message: string; output: string }>('/update/apply', { method: 'POST' })

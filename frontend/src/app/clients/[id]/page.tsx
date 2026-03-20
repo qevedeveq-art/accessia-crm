@@ -97,6 +97,12 @@ export default function ClientPage({ params }: { params: { id: string } }) {
               <Folder size={16} />
             </button>
           )}
+          <Link
+            href={`/devis?client_id=${params.id}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accessia-600 text-white rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors"
+          >
+            <Plus size={14} /> Créer un devis
+          </Link>
           {editing ? (
             <>
               <button onClick={() => { setEditing(false); setForm(client) }}
