@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, Suspense } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import { getClients, createClient, searchCompany, Client, ClientCreate, CompanySearchResult } from '@/lib/api'
@@ -51,21 +51,17 @@ function CompanyDropdown({
   onSelect: (c: CompanySearchResult) => void
   onClose: () => void
 }) {
+  // useLayoutEffect = synchrone après commit DOM, pas de délai de 1 cycle comme useEffect
   const [style, setStyle] = useState<React.CSSProperties>({})
-  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (anchorRef.current) {
       const r = anchorRef.current.getBoundingClientRect()
       setStyle({ position: 'fixed', top: r.bottom + 4, left: r.left, width: r.width, zIndex: 99999 })
     }
   }, [anchorRef, results])
 
-  if (!mounted || results.length === 0) return null
+  if (typeof window === 'undefined' || results.length === 0) return null
 
   return createPortal(
     <div style={style}>
@@ -127,6 +123,8 @@ function ClientsContent() {
   const [siretError, setSiretError] = useState('')
   const [nameSuggestions, setNameSuggestions] = useState<CompanySearchResult[]>([])
   const [nameSearching, setNameSearching] = useState(false)
+  const [nameSearched, setNameSearched] = useState(false)   // true dès qu'une recherche a eu lieu
+  const [nameQuery, setNameQuery] = useState('')             // dernière requête effectuée
   const [showDropdown, setShowDropdown] = useState(false)
   const [siretCandidates, setSiretCandidates] = useState<CompanySearchResult[]>([])
   const nameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -169,6 +167,7 @@ function ClientsContent() {
     }))
     setShowDropdown(false)
     setNameSuggestions([])
+    setNameSearched(false)
     setSiretCandidates([])
     setSiretError('')
   }
@@ -197,16 +196,21 @@ function ClientsContent() {
   const handleNameChange = (v: string) => {
     set('name', v)
     setShowDropdown(false)
+    setNameSearched(false)
     if (nameDebounce.current) clearTimeout(nameDebounce.current)
     if (v.trim().length < 2) { setNameSuggestions([]); return }
     nameDebounce.current = setTimeout(async () => {
       setNameSearching(true)
+      const q = v.trim()
+      setNameQuery(q)
       try {
-        const data = await searchCompany(v.trim())
+        const data = await searchCompany(q)
         setNameSuggestions(data.results.slice(0, 8))
         setShowDropdown(data.results.length > 0)
-      } catch {
+        setNameSearched(true)
+      } catch (e: any) {
         setNameSuggestions([])
+        setNameSearched(true)
       }
       setNameSearching(false)
     }, 400)
@@ -411,9 +415,21 @@ function ClientsContent() {
                       placeholder="Tapez un nom ou SIREN — suggestions en direct…"
                       autoComplete="off"
                     />
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      Recherche dans le registre officiel INSEE · Remplissage automatique des champs
-                    </p>
+                    {nameSearching && (
+                      <p className="text-[11px] text-accessia-500 mt-1 flex items-center gap-1">
+                        <Loader2 size={10} className="animate-spin" /> Recherche dans le registre INSEE…
+                      </p>
+                    )}
+                    {!nameSearching && nameSearched && nameSuggestions.length === 0 && (
+                      <p className="text-[11px] text-amber-600 mt-1 flex items-center gap-1">
+                        <AlertCircle size={10} /> Aucun résultat pour « {nameQuery} » — essayez un SIREN ci-dessous
+                      </p>
+                    )}
+                    {!nameSearching && !nameSearched && (
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        Recherche dans le registre officiel INSEE · Suggestions en direct dès 2 caractères
+                      </p>
+                    )}
                   </div>
 
                   <div>
