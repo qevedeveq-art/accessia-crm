@@ -16,6 +16,21 @@ const SECTOR_OPTS = [
   'Transport / Logistique', 'Finance / Assurance', 'Éducation / Formation', 'Autre',
 ]
 
+function nafToSector(nafCode: string): string {
+  const p = parseInt(nafCode.slice(0, 2), 10)
+  if ([47, 46, 45].includes(p))                             return 'Commerce / Distribution'
+  if ([41, 42, 43, 68].includes(p))                         return 'BTP / Immobilier'
+  if ([86, 87, 88].includes(p))                             return 'Santé / Médical'
+  if (p >= 10 && p <= 33)                                   return 'Industrie / Fabrication'
+  if ([55, 56].includes(p))                                 return 'Restauration / Hôtellerie'
+  if ([1, 2, 3].includes(p))                                return 'Agriculture / Agroalimentaire'
+  if ([49, 50, 51, 52, 53].includes(p))                     return 'Transport / Logistique'
+  if ([64, 65, 66].includes(p))                             return 'Finance / Assurance'
+  if ([85].includes(p))                                     return 'Éducation / Formation'
+  if ([62, 63, 69, 70, 71, 72, 73, 74, 78, 80, 82].includes(p)) return 'Services B2B'
+  return 'Autre'
+}
+
 function Badge({ v }: { v: string }) {
   const cls: Record<string, string> = {
     prospect: 'badge-prospect', active: 'badge-active', inactive: 'badge-inactive',
@@ -43,6 +58,7 @@ function ClientsContent() {
   const [nameSearching, setNameSearching] = useState(false)
   const [showNameDropdown, setShowNameDropdown] = useState(false)
   const [siretCandidates, setSiretCandidates] = useState<CompanySearchResult[]>([])
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null)
   const nameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -68,16 +84,20 @@ function ClientsContent() {
   const typeMap: Record<string, string> = { GE: 'grand_compte', ETI: 'eti', PME: 'pme', TPE: 'micro' }
 
   const applyCompany = (c: CompanySearchResult) => {
+    const fullAddress = [c.address, c.postal_code, c.city].filter(Boolean).join(' ')
     setForm(f => ({
       ...f,
       name: c.name,
       siret: c.siret_siege || f.siret,
-      address: c.address ? `${c.address}${c.postal_code ? ` ${c.postal_code} ${c.city}` : ''}` : f.address,
+      address: fullAddress || f.address,
       type: typeMap[c.categorie] || f.type || 'pme',
+      sector: nafToSector(c.naf_code) || f.sector,
+      source: f.source || 'BPI France',
     }))
     setShowNameDropdown(false)
     setNameSuggestions([])
     setSiretCandidates([])
+    setDropdownRect(null)
   }
 
   const fillFromSiret = async () => {
@@ -95,17 +115,27 @@ function ClientsContent() {
     setSiretSearching(false)
   }
 
+  const openDropdown = () => {
+    if (nameInputRef.current) {
+      const r = nameInputRef.current.getBoundingClientRect()
+      setDropdownRect({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+  }
+
   const handleNameChange = (v: string) => {
     set('name', v)
     setShowNameDropdown(false)
     if (nameDebounce.current) clearTimeout(nameDebounce.current)
-    if (v.trim().length < 2) { setNameSuggestions([]); return }
+    if (v.trim().length < 2) { setNameSuggestions([]); setDropdownRect(null); return }
     nameDebounce.current = setTimeout(async () => {
       setNameSearching(true)
       try {
         const data = await searchCompany(v.trim())
-        setNameSuggestions(data.results.slice(0, 6))
-        setShowNameDropdown(data.results.length > 0)
+        setNameSuggestions(data.results.slice(0, 8))
+        if (data.results.length > 0) {
+          openDropdown()
+          setShowNameDropdown(true)
+        }
       } catch { setNameSuggestions([]) }
       setNameSearching(false)
     }, 400)
@@ -239,7 +269,7 @@ function ClientsContent() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 relative">
+                <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nom de la société *
                     {nameSearching && <Loader2 size={11} className="inline ml-2 animate-spin text-gray-400" />}
@@ -248,34 +278,51 @@ function ClientsContent() {
                     ref={nameInputRef}
                     value={form.name}
                     onChange={e => handleNameChange(e.target.value)}
-                    onBlur={() => setTimeout(() => setShowNameDropdown(false), 150)}
-                    onFocus={() => nameSuggestions.length > 0 && setShowNameDropdown(true)}
+                    onBlur={() => setTimeout(() => { setShowNameDropdown(false); setDropdownRect(null) }, 200)}
+                    onFocus={() => { if (nameSuggestions.length > 0) { openDropdown(); setShowNameDropdown(true) } }}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accessia-300 outline-none"
-                    placeholder="Ex: TechCorp SAS (tapez pour rechercher…)"
+                    placeholder="Tapez un nom ou SIREN pour rechercher…"
                     autoComplete="off"
                   />
-                  {showNameDropdown && nameSuggestions.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                </div>
+                {/* Dropdown rendu en position fixed pour échapper au overflow du modal */}
+                {showNameDropdown && nameSuggestions.length > 0 && dropdownRect && (
+                  <div
+                    className="col-span-2"
+                    style={{ position: 'fixed', top: dropdownRect.top, left: dropdownRect.left, width: dropdownRect.width, zIndex: 9999 }}
+                  >
+                    <div className="bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden max-h-72 overflow-y-auto">
+                      <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                        <span className="text-[11px] text-gray-400 font-medium">{nameSuggestions.length} résultat(s) — registre officiel</span>
+                        <span className="text-[11px] text-gray-400">Cliquez pour remplir le formulaire</span>
+                      </div>
                       {nameSuggestions.map(c => (
                         <button
                           key={c.siren}
                           type="button"
-                          onMouseDown={() => applyCompany(c)}
+                          onMouseDown={e => { e.preventDefault(); applyCompany(c) }}
                           className="w-full px-4 py-2.5 text-left hover:bg-accessia-50 transition-colors border-b border-gray-50 last:border-0"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-sm text-gray-900 truncate">{c.name}</span>
-                            <span className="text-xs text-gray-400 shrink-0">{c.categorie}</span>
+                            <span className="font-semibold text-sm text-gray-900 truncate">{c.name}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${c.status === 'actif' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{c.status}</span>
+                              <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium">{c.categorie}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3 mt-0.5">
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {c.city && <span className="text-xs text-gray-500 flex items-center gap-0.5"><MapPin size={10} />{c.postal_code} {c.city}</span>}
                             <span className="text-xs text-gray-400">{c.naf_label}</span>
-                            {c.city && <span className="text-xs text-gray-400 flex items-center gap-0.5"><MapPin size={10} />{c.city}</span>}
+                            {c.effectif_label && c.effectif_label !== 'Non employeuse' && <span className="text-xs text-gray-400">{c.effectif_label}</span>}
+                          </div>
+                          <div className="mt-0.5">
+                            <span className="text-[10px] font-mono text-gray-300">SIREN {c.siren}</span>
                           </div>
                         </button>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
