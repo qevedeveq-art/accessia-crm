@@ -271,16 +271,46 @@ export const regenerateShareToken = (id: number) =>
 // ─── FICHIERS ────────────────────────────────────────────────
 
 const DEMO_FILES: FileItem[] = [
-  { name: 'Clients', path: 'Clients', is_dir: true, modified: '2026-03-01T10:00:00Z' },
-  { name: 'TechVision SAS', path: 'Clients/TechVision SAS', is_dir: true, modified: '2026-02-15T10:00:00Z' },
-  { name: 'Cabinet Dupont', path: 'Clients/Cabinet Dupont', is_dir: true, modified: '2025-11-20T10:00:00Z' },
-  { name: 'MedConnect', path: 'Clients/MedConnect', is_dir: true, modified: '2026-01-10T10:00:00Z' },
-  { name: 'Projets', path: 'Projets', is_dir: true, modified: '2026-03-10T10:00:00Z' },
-  { name: 'PRJ-2025-001_TechVision_IA', path: 'Projets/PRJ-2025-001', is_dir: true, modified: '2026-03-10T10:00:00Z' },
-  { name: 'PRJ-2025-002_Dupont_Cyber', path: 'Projets/PRJ-2025-002', is_dir: true, modified: '2025-10-15T10:00:00Z' },
-  { name: 'Templates', path: 'Templates', is_dir: true, modified: '2025-08-01T10:00:00Z' },
-  { name: 'Contrat_type_ACCESSIA_v2.docx', path: 'Templates/Contrat_type_ACCESSIA_v2.docx', is_dir: false, size: 45200, modified: '2025-08-01T10:00:00Z', extension: 'docx' },
-  { name: 'Proposition_commerciale_IA.pptx', path: 'Templates/Proposition_commerciale_IA.pptx', is_dir: false, size: 2340000, modified: '2025-12-10T10:00:00Z', extension: 'pptx' },
+  // Racine
+  { name: '01_COMMERCIAL', path: '01_COMMERCIAL', is_dir: true, modified: '2026-03-15T10:00:00Z' },
+  { name: '02_COMPTABILITE', path: '02_COMPTABILITE', is_dir: true, modified: '2026-03-01T10:00:00Z' },
+  { name: '03_JURIDIQUE', path: '03_JURIDIQUE', is_dir: true, modified: '2026-01-20T10:00:00Z' },
+  { name: '04_MARKETING', path: '04_MARKETING', is_dir: true, modified: '2026-02-10T10:00:00Z' },
+  { name: '05_PROJETS', path: '05_PROJETS', is_dir: true, modified: '2026-03-18T10:00:00Z' },
+  { name: '06_FORMATION', path: '06_FORMATION', is_dir: true, modified: '2025-12-01T10:00:00Z' },
+  { name: '07_ADMINISTRATIF', path: '07_ADMINISTRATIF', is_dir: true, modified: '2026-01-05T10:00:00Z' },
+  { name: 'CATALOGUE_OFFRES.md', path: 'CATALOGUE_OFFRES.md', is_dir: false, size: 3200, modified: '2026-03-20T10:00:00Z', extension: '.md' },
+  // 01_COMMERCIAL
+  { name: 'Clients', path: '01_COMMERCIAL/Clients', is_dir: true, modified: '2026-03-15T10:00:00Z' },
+  { name: 'Prospects', path: '01_COMMERCIAL/Prospects', is_dir: true, modified: '2026-03-10T10:00:00Z' },
+  { name: 'Partenaires', path: '01_COMMERCIAL/Partenaires', is_dir: true, modified: '2026-01-15T10:00:00Z' },
+  // 01_COMMERCIAL/Clients
+  { name: 'TechVision SAS', path: '01_COMMERCIAL/Clients/TechVision SAS', is_dir: true, modified: '2026-02-15T10:00:00Z' },
+  { name: 'Cabinet Dupont', path: '01_COMMERCIAL/Clients/Cabinet Dupont', is_dir: true, modified: '2025-11-20T10:00:00Z' },
+  { name: 'MedConnect', path: '01_COMMERCIAL/Clients/MedConnect', is_dir: true, modified: '2026-01-10T10:00:00Z' },
+  { name: 'PROFIL_CLIENT.md', path: '01_COMMERCIAL/Clients/TechVision SAS/PROFIL_CLIENT.md', is_dir: false, size: 1850, modified: '2026-02-15T10:00:00Z', extension: '.md' },
+  { name: 'Contrats', path: '01_COMMERCIAL/Clients/TechVision SAS/Contrats', is_dir: true, modified: '2026-02-15T10:00:00Z' },
+  { name: 'Factures', path: '01_COMMERCIAL/Clients/TechVision SAS/Factures', is_dir: true, modified: '2026-02-15T10:00:00Z' },
+  // 01_COMMERCIAL/Prospects
+  { name: 'Agence Nord Conseil', path: '01_COMMERCIAL/Prospects/Agence Nord Conseil', is_dir: true, modified: '2026-03-10T10:00:00Z' },
+  { name: 'BioTech Innov', path: '01_COMMERCIAL/Prospects/BioTech Innov', is_dir: true, modified: '2026-03-05T10:00:00Z' },
+  // 02_COMPTABILITE
+  { name: 'Factures', path: '02_COMPTABILITE/Factures', is_dir: true, modified: '2026-03-01T10:00:00Z' },
+  { name: 'Devis', path: '02_COMPTABILITE/Devis', is_dir: true, modified: '2026-02-20T10:00:00Z' },
+  { name: 'ACC-2026-001.md', path: '02_COMPTABILITE/Factures/ACC-2026-001.md', is_dir: false, size: 980, modified: '2026-01-15T10:00:00Z', extension: '.md' },
+  { name: 'ACC-2026-002.md', path: '02_COMPTABILITE/Factures/ACC-2026-002.md', is_dir: false, size: 1020, modified: '2026-02-10T10:00:00Z', extension: '.md' },
+  // 03_JURIDIQUE
+  { name: 'Contrats', path: '03_JURIDIQUE/Contrats', is_dir: true, modified: '2026-01-20T10:00:00Z' },
+  { name: 'RGPD', path: '03_JURIDIQUE/RGPD', is_dir: true, modified: '2026-01-20T10:00:00Z' },
+  { name: 'Contrat_TechVision_2025.md', path: '03_JURIDIQUE/Contrats/Contrat_TechVision_2025.md', is_dir: false, size: 5400, modified: '2025-10-01T10:00:00Z', extension: '.md' },
+  // 04_MARKETING
+  { name: 'Templates', path: '04_MARKETING/Templates', is_dir: true, modified: '2026-02-10T10:00:00Z' },
+  { name: 'Propositions', path: '04_MARKETING/Propositions', is_dir: true, modified: '2026-03-01T10:00:00Z' },
+  // 05_PROJETS
+  { name: '_TEMPLATE_PROJET', path: '05_PROJETS/_TEMPLATE_PROJET', is_dir: true, modified: '2025-08-01T10:00:00Z' },
+  { name: 'PRJ-2025-001_TechVision_IA', path: '05_PROJETS/PRJ-2025-001_TechVision_IA', is_dir: true, modified: '2026-03-10T10:00:00Z' },
+  { name: 'PRJ-2025-002_Dupont_Cyber', path: '05_PROJETS/PRJ-2025-002_Dupont_Cyber', is_dir: true, modified: '2025-10-15T10:00:00Z' },
+  { name: 'README.md', path: '05_PROJETS/PRJ-2025-001_TechVision_IA/README.md', is_dir: false, size: 2100, modified: '2026-03-10T10:00:00Z', extension: '.md' },
 ]
 
 export const browseRoot = () =>
@@ -394,6 +424,7 @@ export interface Client {
   contact_name?: string
   contact_email?: string
   contact_phone?: string
+  address?: string
   website?: string
   budget_range?: string
   folder_path?: string

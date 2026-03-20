@@ -20,6 +20,28 @@ PROJECTS_DIR = SENSIA_BASE / "05_PROJETS"
 TEMPLATE_DIR = PROJECTS_DIR / "_TEMPLATE_PROJET"
 PROSPECTS_DIR = SENSIA_BASE / "01_COMMERCIAL" / "Prospects"
 
+# Dossiers standard à créer si manquants
+_STANDARD_DIRS = [
+    SENSIA_BASE / "01_COMMERCIAL" / "Clients",
+    SENSIA_BASE / "01_COMMERCIAL" / "Prospects",
+    SENSIA_BASE / "01_COMMERCIAL" / "Partenaires",
+    SENSIA_BASE / "02_COMPTABILITE" / "Factures",
+    SENSIA_BASE / "02_COMPTABILITE" / "Devis",
+    SENSIA_BASE / "03_JURIDIQUE" / "Contrats",
+    SENSIA_BASE / "03_JURIDIQUE" / "RGPD",
+    SENSIA_BASE / "04_MARKETING" / "Templates",
+    SENSIA_BASE / "04_MARKETING" / "Propositions",
+    SENSIA_BASE / "05_PROJETS" / "_TEMPLATE_PROJET",
+    SENSIA_BASE / "06_FORMATION",
+    SENSIA_BASE / "07_ADMINISTRATIF",
+]
+
+
+def ensure_standard_dirs() -> None:
+    """Crée la structure de dossiers standard ACCESSIA Pro si elle n'existe pas."""
+    for d in _STANDARD_DIRS:
+        d.mkdir(parents=True, exist_ok=True)
+
 # Taille max des fichiers lisibles (1 Mo)
 MAX_READ_SIZE = 1_048_576
 
@@ -195,7 +217,7 @@ def list_directory(path: str) -> list:
     items = []
     for item in sorted(target.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
         # Ignorer les fichiers/dossiers cachés et sensibles
-        if item.name.startswith(".") or item.name in ("__pycache__", "venv", "node_modules", ".git"):
+        if item.name.startswith(".") or item.name in ("__pycache__", "venv", "node_modules", ".git", "_ACCESSIA_APP"):
             continue
         try:
             items.append({

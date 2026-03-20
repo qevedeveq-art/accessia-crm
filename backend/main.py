@@ -108,6 +108,7 @@ def _run_migrations():
         log.warning(f"Migration automatique échouée (non critique) : {e}")
 
 _run_migrations()
+file_service.ensure_standard_dirs()
 
 app = FastAPI(
     title="ACCESSIA Pro API",

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useState, useRef, Suspense } from 'react'
+import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import { getClients, createClient, searchCompany, Client, ClientCreate, CompanySearchResult } from '@/lib/api'
@@ -9,6 +10,8 @@ import {
   Plus, Search, Building2, Mail, Phone, Loader2, Wand2, MapPin,
   Users, TrendingUp, Briefcase, AlertCircle,
 } from 'lucide-react'
+
+const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
 
 const STATUS_OPTS = ['prospect', 'active', 'inactive']
 const TYPE_OPTS   = ['micro', 'pme', 'eti', 'grand_compte']
@@ -293,6 +296,13 @@ function ClientsContent() {
           </div>
         </div>
       </div>
+
+      {/* Carte des clients */}
+      {allClients.length > 0 && (
+        <div className="mb-6">
+          <ClientsMap clients={allClients} />
+        </div>
+      )}
 
       {/* Erreur API */}
       {error && !open && (
