@@ -7,7 +7,7 @@ import {
   Activity, Invoice, Project, DiagnosticItem,
 } from '@/lib/api'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, Folder, Edit2, Check, X } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Folder, Edit2, Check, X, Plus } from 'lucide-react'
 import DiagnosticRecsPanel from '@/components/DiagnosticRecsPanel'
 
 const PHASE_LABELS = [
@@ -228,11 +228,19 @@ export default function ClientPage({ params }: { params: { id: string } }) {
       {tab === 'diagnostics' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Recommandations diagnostics</h2>
-            <Link href={`/diagnostics?client_id=${params.id}`}
-              className="text-xs text-accessia-600 hover:underline">
-              Voir tous les diagnostics →
-            </Link>
+            <h2 className="text-lg font-semibold text-gray-800">Diagnostics</h2>
+            <div className="flex items-center gap-3">
+              <Link href={`/diagnostics?client_id=${params.id}`}
+                className="text-xs text-accessia-600 hover:underline">
+                Voir tous →
+              </Link>
+              <Link
+                href={`/diagnostics?new=1&client_id=${params.id}`}
+                className="flex items-center gap-1.5 bg-accessia-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-accessia-700 transition-colors"
+              >
+                <Plus size={13} /> Lancer un diagnostic
+              </Link>
+            </div>
           </div>
           <DiagnosticRecsPanel clientId={Number(params.id)} />
         </div>

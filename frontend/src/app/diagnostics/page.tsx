@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   getDiagnostics, createDiagnostic, deleteDiagnostic, getDiagnosticPdfUrl,
   getClients, DiagnosticItem, DiagnosticCreate, Client,
@@ -38,7 +39,21 @@ function TypeBadge({ type }: { type: string }) {
   )
 }
 
-export default function DiagnosticsPage() {
+const TYPE_NAMES: Record<string, string> = {
+  cyber: 'Cybersécurité',
+  ia:    'Opportunités IA',
+  rgpd:  'Conformité RGPD',
+}
+
+function autoTitle(client: Client | undefined, type: string): string {
+  if (!client) return ''
+  const monthYear = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  return `${client.name} — ${TYPE_NAMES[type] ?? type} — ${monthYear}`
+}
+
+function DiagnosticsContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [diagnostics, setDiagnostics] = useState<DiagnosticItem[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
@@ -46,6 +61,7 @@ export default function DiagnosticsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<DiagnosticCreate>({ client_id: 0, type: 'cyber', title: '' })
+  const [titleEdited, setTitleEdited] = useState(false)   // true si l'utilisateur a modifié le titre manuellement
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<number | null>(null)
@@ -59,6 +75,26 @@ export default function DiagnosticsPage() {
 
   useEffect(() => { load() }, [typeFilter, statusFilter])
   useEffect(() => { getClients().then(setClients).catch(() => {}) }, [])
+
+  // Ouverture automatique depuis ?new=1&client_id=X (ex: vue client)
+  useEffect(() => {
+    if (searchParams.get('new') !== '1' || clients.length === 0) return
+    const clientId = Number(searchParams.get('client_id')) || 0
+    const type: DiagnosticCreate['type'] = 'cyber'
+    const client = clients.find(c => c.id === clientId)
+    setForm({ client_id: clientId, type, title: autoTitle(client, type) })
+    setTitleEdited(false)
+    setOpen(true)
+    // Nettoyer les params d'URL sans recharger
+    router.replace('/diagnostics')
+  }, [clients])
+
+  // Auto-génération du titre quand client ou type change (sauf si édité manuellement)
+  useEffect(() => {
+    if (titleEdited) return
+    const client = clients.find(c => c.id === form.client_id)
+    setForm(f => ({ ...f, title: autoTitle(client, f.type) }))
+  }, [form.client_id, form.type, clients])
 
   const filtered = diagnostics.filter(d => {
     if (!search) return true
@@ -77,6 +113,7 @@ export default function DiagnosticsPage() {
     try {
       const created = await createDiagnostic(form)
       setOpen(false)
+      setTitleEdited(false)
       setForm({ client_id: 0, type: 'cyber', title: '' })
       load()
       // Rediriger vers le diagnostic créé
@@ -295,13 +332,27 @@ export default function DiagnosticsPage() {
               </div>
 
               <div>
-                <label className="label">Titre *</label>
+                <label className="label flex items-center gap-2">
+                  Titre *
+                  {!titleEdited && form.client_id > 0 && (
+                    <span className="text-[10px] text-accessia-500 font-normal">· généré automatiquement</span>
+                  )}
+                </label>
                 <input
                   value={form.title}
-                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="Ex: Diagnostic cybersécurité Q1 2026"
+                  onChange={e => { setTitleEdited(true); setForm(f => ({ ...f, title: e.target.value })) }}
+                  placeholder="Ex: TechCorp — Cybersécurité — mars 2026"
                   className="input w-full"
                 />
+                {titleEdited && (
+                  <button
+                    type="button"
+                    onClick={() => { setTitleEdited(false); const c = clients.find(x => x.id === form.client_id); setForm(f => ({ ...f, title: autoTitle(c, f.type) })) }}
+                    className="text-[11px] text-accessia-500 hover:underline mt-1"
+                  >
+                    ↺ Regénérer automatiquement
+                  </button>
+                )}
               </div>
             </div>
 
@@ -315,5 +366,13 @@ export default function DiagnosticsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function DiagnosticsPage() {
+  return (
+    <Suspense>
+      <DiagnosticsContent />
+    </Suspense>
   )
 }
