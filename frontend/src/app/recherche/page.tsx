@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { searchCompany, CompanySearchResult, GrantInfo, ClientCreate } from '@/lib/api'
+import { searchCompany, getClients, CompanySearchResult, GrantInfo, ClientCreate, Client } from '@/lib/api'
 import {
   Search, Building2, MapPin, Users, Calendar, CheckCircle2, XCircle, AlertCircle,
   ExternalLink, ChevronDown, ChevronUp, ChevronRight, Plus, Loader2, Euro,
@@ -141,6 +141,53 @@ function hasUpcomingDeadline(grants: GrantInfo[]) {
     (g.deadline.toLowerCase().includes('avr') || g.deadline.toLowerCase().includes('avril')))
 }
 
+// ─── Opportunity Calculator ───────────────────────────────────
+
+interface OpportunityEstimate {
+  label: string
+  budget_min: number
+  budget_max: number
+  revenue_min: number
+  revenue_max: number
+  confidence: 'high' | 'medium' | 'low'
+  next_step: string
+}
+
+function computeOpportunity(company: CompanySearchResult): OpportunityEstimate {
+  const eligible = company.grants.filter(g => g.eligible)
+  const n = eligible.length
+  const isLarge = company.categorie === 'ETI' || company.categorie === 'GE'
+  const isMedium = company.categorie === 'PME' && ['22', '31', '32', '41', '42'].includes(company.effectif_code)
+
+  let min = 0, max = 0, label = '', next_step = ''
+  let confidence: 'high' | 'medium' | 'low' = 'low'
+
+  if (n === 0) {
+    min = 3000; max = 8000; label = 'Diagnostic exploratoire'; next_step = 'Proposer un audit de maturité IA'
+    confidence = 'low'
+  } else if (n === 1) {
+    min = 8000; max = 18000; label = 'Diagnostic + suivi'; next_step = 'Démarrer par un Diag Data IA BPI'
+    confidence = 'medium'
+  } else if (n <= 3) {
+    min = 20000; max = 45000; label = 'Accompagnement IA'; next_step = 'Proposer un accompagnement IA 3–6 mois'
+    confidence = 'medium'
+  } else {
+    min = 40000; max = 90000; label = 'Projet IA structuré'; next_step = 'Proposer un projet IA complet avec roadmap'
+    confidence = 'high'
+  }
+
+  if (isLarge)       { min = Math.round(min * 1.6); max = Math.round(max * 1.6) }
+  else if (isMedium) { min = Math.round(min * 1.2); max = Math.round(max * 1.2) }
+
+  // ACCESSIA revenue: ~15% consulting & project management fees
+  return {
+    label, budget_min: min, budget_max: max,
+    revenue_min: Math.round(min * 0.15),
+    revenue_max: Math.round(max * 0.15),
+    confidence, next_step,
+  }
+}
+
 // ─── Grant Card ───────────────────────────────────────────────
 
 function GrantCard({ grant }: { grant: GrantInfo }) {
@@ -278,6 +325,125 @@ function BudgetSimulator({ grants }: { grants: GrantInfo[] }) {
   )
 }
 
+// ─── Opportunity Panel ────────────────────────────────────────
+
+function OpportunityPanel({ company }: { company: CompanySearchResult }) {
+  const opp = computeOpportunity(company)
+  const eligible = company.grants.filter(g => g.eligible)
+  const grantsTotal = totalEstimated(company.grants)
+
+  const colors = {
+    high:   { wrap: 'border-green-200 bg-green-50',   text: 'text-green-700',  badge: 'bg-green-100 text-green-700',  cell: 'bg-white/70' },
+    medium: { wrap: 'border-yellow-200 bg-yellow-50', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-700', cell: 'bg-white/70' },
+    low:    { wrap: 'border-gray-200 bg-gray-50',     text: 'text-gray-600',   badge: 'bg-gray-100 text-gray-600',    cell: 'bg-white/70' },
+  }[opp.confidence]
+
+  const badgeLabel = { high: 'Forte opportunité', medium: 'Opportunité à qualifier', low: 'À prospecter' }[opp.confidence]
+
+  return (
+    <div className={`border rounded-xl p-4 ${colors.wrap}`}>
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className={`text-[10px] font-semibold uppercase tracking-wide ${colors.text} opacity-70`}>Opportunité commerciale estimée</p>
+          <p className={`text-sm font-bold mt-0.5 ${colors.text}`}>{opp.label}</p>
+        </div>
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${colors.badge}`}>{badgeLabel}</span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-xs mb-3">
+        <div className={`${colors.cell} rounded-lg p-2 text-center`}>
+          <p className={`${colors.text} opacity-60 mb-0.5`}>Aides identifiées</p>
+          <p className={`font-bold ${colors.text}`}>
+            {grantsTotal > 0 ? `${grantsTotal.toLocaleString('fr-FR')} €+` : eligible.length > 0 ? 'En %' : '—'}
+          </p>
+        </div>
+        <div className={`${colors.cell} rounded-lg p-2 text-center`}>
+          <p className={`${colors.text} opacity-60 mb-0.5`}>Budget mission</p>
+          <p className={`font-bold ${colors.text}`}>{opp.budget_min.toLocaleString('fr-FR')}–{opp.budget_max.toLocaleString('fr-FR')} €</p>
+        </div>
+        <div className={`${colors.cell} rounded-lg p-2 text-center`}>
+          <p className={`${colors.text} opacity-60 mb-0.5`}>Revenus ACCESSIA</p>
+          <p className={`font-bold ${colors.text}`}>{opp.revenue_min.toLocaleString('fr-FR')}–{opp.revenue_max.toLocaleString('fr-FR')} €</p>
+        </div>
+      </div>
+
+      <p className={`text-xs flex items-center gap-1 ${colors.text} opacity-70`}>
+        <ChevronRight size={11} className="shrink-0" /> {opp.next_step}
+      </p>
+    </div>
+  )
+}
+
+// ─── Link Client Modal ────────────────────────────────────────
+
+function LinkClientModal({ company, onClose }: { company: CompanySearchResult; onClose: () => void }) {
+  const router = useRouter()
+  const [clients, setClients] = useState<Client[]>([])
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getClients().then(c => { setClients(c); setLoading(false) }).catch(() => setLoading(false))
+  }, [])
+
+  const filtered = clients.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.sector ?? '').toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Lier à un client existant</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Sélectionnez le compte CRM correspondant à <strong>{company.name}</strong></p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={16} /></button>
+        </div>
+        <div className="relative mb-3">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher un client CRM…"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 outline-none"
+            autoFocus
+          />
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400"><Loader2 size={20} className="animate-spin" /></div>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">Aucun client correspondant</p>
+        ) : (
+          <div className="max-h-60 overflow-y-auto space-y-1">
+            {filtered.map(c => (
+              <button
+                key={c.id}
+                onClick={() => { router.push(`/clients/${c.id}`); onClose() }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-accessia-50 text-left transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-accessia-100 text-accessia-700 flex items-center justify-center font-bold text-sm shrink-0">
+                  {c.name[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p>
+                  <p className="text-xs text-gray-400">{c.sector || c.type} · <span className={c.status === 'client' ? 'text-green-600' : 'text-yellow-600'}>{c.status}</span></p>
+                </div>
+                <ChevronRight size={14} className="text-gray-300 shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex gap-2">
+          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors">
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Company Card ─────────────────────────────────────────────
 
 function CompanyCard({
@@ -288,6 +454,7 @@ function CompanyCard({
   isSaved: boolean
   onToggleSave: (c: CompanySearchResult) => void
 }) {
+  const [linkOpen, setLinkOpen] = useState(false)
   const eligible  = totalEligible(company.grants)
   const estimated = totalEstimated(company.grants)
   const upcoming  = hasUpcomingDeadline(company.grants)
@@ -399,12 +566,22 @@ function CompanyCard({
         {/* Simulation budget */}
         <BudgetSimulator grants={company.grants} />
 
+        {/* Opportunité commerciale */}
+        <OpportunityPanel company={company} />
+
         <div className="flex gap-2">
           <button
             onClick={() => onImport(company)}
             className="flex-1 flex items-center justify-center gap-2 bg-accessia-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-accessia-700 transition-colors"
           >
             <Plus size={15} /> Créer comme client
+          </button>
+          <button
+            onClick={() => setLinkOpen(true)}
+            title="Lier à un client CRM existant"
+            className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shrink-0"
+          >
+            <ArrowLeftRight size={15} /> Lier
           </button>
           <Link
             href={`/diagnostics?new=ia&company=${encodeURIComponent(company.name)}`}
@@ -415,6 +592,7 @@ function CompanyCard({
           </Link>
         </div>
       </div>
+      {linkOpen && <LinkClientModal company={company} onClose={() => setLinkOpen(false)} />}
 
       {/* Colonne droite — aides */}
       <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
