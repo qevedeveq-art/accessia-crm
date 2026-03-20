@@ -1,11 +1,11 @@
 @echo off
-title SENSIA Manager
+title ACCESSIA Pro
 
 echo.
-echo  ╔═══════════════════════════════════════╗
-echo  ║         SENSIA MANAGER v1.0           ║
-echo  ║   Conseil IA · PME et Entrepreneurs   ║
-echo  ╚═══════════════════════════════════════╝
+echo  ╔═══════════════════════════════════════════╗
+echo  ║         ACCESSIA Pro v1.2.0               ║
+echo  ║   Conseil IA · PME et Entrepreneurs       ║
+echo  ╚═══════════════════════════════════════════╝
 echo.
 
 :: Vérifier si .env existe
@@ -25,24 +25,19 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [1/3] Démarrage de la base de données et de Twenty CRM...
-docker-compose up -d twenty-db twenty-redis twenty-server
+echo [1/2] Démarrage du backend FastAPI...
+docker compose up -d backend 2>nul || docker-compose up -d backend
 
 echo.
-echo [2/3] Démarrage du backend FastAPI...
-docker-compose up -d backend
-
-echo.
-echo [3/3] Démarrage du frontend Next.js...
-docker-compose up -d frontend
+echo [2/2] Démarrage du frontend Next.js...
+docker compose up -d frontend 2>nul || docker-compose up -d frontend
 
 echo.
 echo ══════════════════════════════════════════════════
-echo  ✅ SENSIA Manager est démarré !
+echo  ✅ ACCESSIA Pro est démarré !
 echo.
 echo   → Application  : http://localhost:3001
-echo   → API Backend  : http://localhost:8000/docs
-echo   → CRM (Twenty) : http://localhost:3000
+echo   → API (Swagger): http://localhost:8001/docs
 echo ══════════════════════════════════════════════════
 echo.
 echo Appuyez sur une touche pour ouvrir le navigateur...

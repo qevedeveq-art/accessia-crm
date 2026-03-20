@@ -1,8 +1,8 @@
 @echo off
-title SENSIA Manager — Dev (sans Docker)
+title ACCESSIA Pro — Dev (sans Docker)
 
 echo.
-echo  SENSIA Manager — Mode Développement (sans Docker)
+echo  ACCESSIA Pro — Mode Développement (sans Docker)
 echo  ══════════════════════════════════════════════════
 echo.
 
@@ -33,7 +33,7 @@ call venv\Scripts\activate.bat
 pip install -r requirements.txt -q
 
 echo [2/3] Démarrage du backend FastAPI (port 8000)...
-start "SENSIA Backend" cmd /k "venv\Scripts\activate.bat && uvicorn main:app --reload --port 8000"
+start "ACCESSIA Backend" cmd /k "venv\Scripts\activate.bat && uvicorn main:app --reload --port 8000"
 cd ..
 
 :: ── Frontend ─────────────────────────────────────────────────
@@ -43,18 +43,15 @@ if not exist node_modules (
     echo Installation des dépendances npm...
     npm install
 )
-start "SENSIA Frontend" cmd /k "npm run dev"
+start "ACCESSIA Frontend" cmd /k "npm run dev"
 cd ..
 
 echo.
 echo ══════════════════════════════════════════════════
-echo  ✅ SENSIA Manager démarré en mode DEV !
+echo  ✅ ACCESSIA Pro démarré en mode DEV !
 echo.
 echo   → Application  : http://localhost:3001
 echo   → API (Swagger): http://localhost:8000/docs
-echo.
-echo  [Note] Twenty CRM non démarré en mode DEV.
-echo  Lancez start.bat pour le mode complet avec Docker.
 echo ══════════════════════════════════════════════════
 echo.
 timeout /t 5 /nobreak > nul

@@ -1,7 +1,7 @@
-__pycache__
+venv/
+__pycache__/
 *.pyc
-venv
-.env
 *.db
-.git
-*.md
+*.db-shm
+*.db-wal
+.env
