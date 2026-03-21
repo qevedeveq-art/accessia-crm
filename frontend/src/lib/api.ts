@@ -684,21 +684,26 @@ export interface QuoteCreate {
 export interface TimeEntry {
   id: number
   project_id: number
+  project_code?: string
   project_name?: string
-  client_id: number
+  client_id?: number
   client_name?: string
   date?: string
   duration_minutes: number
   description?: string
+  billable?: boolean
+  cost?: number
   created_at?: string
 }
 
 export interface TimeEntryCreate {
   project_id: number
-  client_id: number
+  client_id?: number
   date?: string
   duration_minutes: number
   description?: string
+  billable?: boolean
+  hourly_rate?: number
 }
 
 export interface AlertsData {
@@ -844,3 +849,123 @@ export const checkUpdate = () =>
 
 export const applyUpdate = () =>
   request<{ message: string; output: string }>('/update/apply', { method: 'POST' })
+
+// ─── NOTIFICATIONS ─────────────────────────────────────────────
+
+export interface NotificationItem {
+  id: number
+  type: string
+  severity: 'critical' | 'warning' | 'info'
+  entity_type?: string
+  title: string
+  message?: string
+  is_read: boolean
+  created_at?: string
+}
+
+export const getNotifications = (params?: { unread_only?: boolean; limit?: number }) =>
+  isDemoMode()
+    ? Promise.resolve([] as NotificationItem[])
+    : request<NotificationItem[]>(`/notifications${params ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))) : ''}`)
+
+export const checkNotifications = () =>
+  isDemoMode()
+    ? Promise.resolve({ count: 0 })
+    : request<{ count: number }>('/notifications/check', { method: 'POST' })
+
+export const markNotificationRead = (id: number) =>
+  isDemoMode()
+    ? Promise.resolve({ id })
+    : request<{ id: number }>(`/notifications/${id}/read`, { method: 'PATCH' })
+
+export const markAllNotificationsRead = () =>
+  isDemoMode()
+    ? Promise.resolve({ count: 0 })
+    : request<{ count: number }>('/notifications/mark-all-read', { method: 'PATCH' })
+
+export const deleteNotification = (id: number) =>
+  isDemoMode()
+    ? Promise.resolve({ message: 'OK' })
+    : request<{ message: string }>(`/notifications/${id}`, { method: 'DELETE' })
+
+// ─── PORTAIL CLIENT ────────────────────────────────────────────
+
+export interface ClientPortalData {
+  client_name: string
+  sector?: string
+  projects: Array<{
+    code: string
+    name: string
+    status: string
+    phase_label: string
+    phase: number
+    progress_pct: number
+    start_date?: string
+    end_date?: string
+  }>
+  invoices: Array<{
+    number: string
+    amount_ttc: number
+    status: string
+    issued_date?: string
+    due_date?: string
+  }>
+  diagnostics: Array<{
+    type: 'cyber' | 'ia'
+    title: string
+    share_token: string
+    global_score?: number
+    created_at?: string
+  }>
+}
+
+export const getClientPortal = (token: string) =>
+  isDemoMode()
+    ? Promise.resolve({ client_name: 'Client Démo', sector: 'PME', projects: [], invoices: [], diagnostics: [] } as ClientPortalData)
+    : request<ClientPortalData>(`/portal/${token}`)
+
+// ─── RGPD ──────────────────────────────────────────────────────
+
+export interface RgpdDashboardData {
+  stats: {
+    total_projects: number
+    conforme: number
+    en_cours: number
+    non_conforme: number
+    taux_conformite: number
+  }
+  registre: Array<{
+    project_id: number
+    project_code: string
+    project_name: string
+    project_status: string
+    client_name?: string
+    rgpd_status: 'conforme' | 'en_cours' | 'non_conforme'
+    gdpr_done: boolean
+    gdpr_file_exists: boolean
+  }>
+}
+
+export const getRgpdDashboard = () =>
+  isDemoMode()
+    ? Promise.resolve({ stats: { total_projects: 0, conforme: 0, en_cours: 0, non_conforme: 0, taux_conformite: 0 }, registre: [] } as RgpdDashboardData)
+    : request<RgpdDashboardData>('/rgpd-dashboard')
+
+// ─── TIME TRACKING (SUMMARY) ───────────────────────────────────
+
+export interface TimeEntrySummary {
+  project_id: number
+  project_code: string
+  project_name: string
+  client_name?: string
+  budget?: number
+  total_hours: number
+  billable_hours: number
+  total_cost: number
+  budget_consumed_pct: number
+}
+
+export const getTimeEntriesSummary = () =>
+  isDemoMode()
+    ? Promise.resolve([] as TimeEntrySummary[])
+    : request<TimeEntrySummary[]>('/time-entries/summary')
