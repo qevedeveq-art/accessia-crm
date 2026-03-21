@@ -11,8 +11,8 @@ echo.
 set "ROOT=%~dp0"
 set "BACKEND=%ROOT%backend"
 set "FRONTEND=%ROOT%frontend"
-set "PYTHON310=C:\Users\qeved\AppData\Local\Programs\Python\Python310\python.exe"
 set "VENV_PYTHON=%BACKEND%\venv\Scripts\python.exe"
+set "PYTHON_CMD="
 
 :: ── Tuer les anciens processus sur 8000 et 3001 ────────────────────────────
 echo [0/4] Nettoyage des anciens processus...
@@ -28,13 +28,13 @@ timeout /t 1 /nobreak >nul
 echo [1/4] Verification du venv Python...
 cd /d "%BACKEND%"
 
+call :resolve_python
+if errorlevel 1 goto :python_not_found
+
 if not exist venv (
-    echo      Creation du venv avec Python 3.10...
-    if exist "%PYTHON310%" (
-        "%PYTHON310%" -m venv venv
-    ) else (
-        python -m venv venv
-    )
+    echo      Creation du venv Python...
+    call :create_venv
+    if errorlevel 1 goto :python_not_found
 )
 
 :: Verifier que pip est disponible dans le venv
@@ -42,11 +42,8 @@ if not exist venv (
 if errorlevel 1 (
     echo      Venv corrompu - recreation...
     rmdir /s /q venv >nul 2>&1
-    if exist "%PYTHON310%" (
-        "%PYTHON310%" -m venv venv
-    ) else (
-        python -m venv venv
-    )
+    call :create_venv
+    if errorlevel 1 goto :python_not_found
 )
 
 echo [2/4] Installation des dependances Python...
@@ -89,3 +86,29 @@ echo.
 timeout /t 6 /nobreak >nul
 start http://localhost:3001
 endlocal
+goto :eof
+
+:resolve_python
+if defined PYTHON_CMD exit /b 0
+where py >nul 2>&1
+if not errorlevel 1 (
+    py -3.11 -V >nul 2>&1 && set "PYTHON_CMD=py -3.11"
+    if not defined PYTHON_CMD py -3.10 -V >nul 2>&1 && set "PYTHON_CMD=py -3.10"
+    if not defined PYTHON_CMD py -3 -V >nul 2>&1 && set "PYTHON_CMD=py -3"
+)
+if not defined PYTHON_CMD (
+    where python >nul 2>&1
+    if not errorlevel 1 set "PYTHON_CMD=python"
+)
+if not defined PYTHON_CMD exit /b 1
+exit /b 0
+
+:create_venv
+call %PYTHON_CMD% -m venv venv
+exit /b %errorlevel%
+
+:python_not_found
+echo.
+echo [ERREUR] Aucun interpreteur Python compatible n'a ete trouve.
+echo          Installez Python 3.10+ ou verifiez la commande `py`.
+exit /b 1
