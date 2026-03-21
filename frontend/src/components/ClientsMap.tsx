@@ -159,8 +159,8 @@ export default function ClientsMap({ clients }: { clients: Client[] }) {
         </div>
       </div>
 
-      {/* Map container */}
-      <div className="relative" style={{ height: 340 }}>
+      {/* Map container — zIndex:0 confine les couches Leaflet dans ce contexte */}
+      <div style={{ height: 340, position: 'relative', zIndex: 0 }}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
             <div className="text-center text-gray-400">

@@ -270,7 +270,9 @@ def is_safe_path(path: str) -> bool:
 
 # ─── CATALOGUE DES PRESTATIONS ────────────────────────────────────────────────
 
-CATALOGUE_PATH = SENSIA_BASE / "CATALOGUE_OFFRES.md"
+# Catalogue stocké à la racine du repo (commité dans git, toujours disponible)
+_APP_ROOT = Path(__file__).parent.parent
+CATALOGUE_PATH = _APP_ROOT / "CATALOGUE_OFFRES.md"
 
 
 def _field(section: str, key: str) -> str:
