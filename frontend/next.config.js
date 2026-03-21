@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
-    // En dev local (NEXT_PUBLIC_API_URL vide) → proxy /api/* vers le backend port 8000
-    // En Docker (NEXT_PUBLIC_API_URL=http://localhost:8001) → l'appel est absolu, pas de proxy
-    if (process.env.NEXT_PUBLIC_API_URL) return []
+    // Proxy /api/* → backend port 8000 (s'applique uniquement aux URL relatives,
+    // donc sans effet en Docker où NEXT_PUBLIC_API_URL est une URL absolue)
     return [
       {
         source: '/api/:path*',

@@ -4,7 +4,7 @@ import {
   DEMO_QUOTES, DEMO_TIME_ENTRIES, DEMO_ALERTS, DEMO_REPORTING, DEMO_COMPANY_SEARCH,
 } from './demo-data'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const BASE = `${API_URL}/api`
 
 // ─── MODE DÉMO ───────────────────────────────────────────────

@@ -897,10 +897,13 @@ class PrestationItem(BaseModel):
     name: str
     category: str = ""
     price_ht: Optional[float] = None
+    price_max: Optional[float] = None
     duration: str = ""
     target: str = ""
     active: bool = True
     description: str = ""
+    deliverables: List[str] = []
+    financing: List[str] = []
 
 
 @app.put("/api/prestations")
