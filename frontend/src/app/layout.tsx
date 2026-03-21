@@ -5,6 +5,8 @@ import LayoutShell from '@/components/LayoutShell'
 
 const inter = Inter({ subsets: ['latin'] })
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'ACCESSIA Pro',
   description: 'Gestion clients, projets & CRM — ACCESSIA Pro',
