@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { Suspense } from 'react'
 import './globals.css'
 import LayoutShell from '@/components/LayoutShell'
 
@@ -18,9 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <body className={inter.className}>
-        <Suspense fallback={null}>
-          <LayoutShell>{children}</LayoutShell>
-        </Suspense>
+        <LayoutShell>{children}</LayoutShell>
       </body>
     </html>
   )

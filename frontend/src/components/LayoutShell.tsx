@@ -1,12 +1,12 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Sidebar from './Sidebar'
 import { isDemoMode, DEMO_KEY } from '@/lib/api'
 import { FlaskConical } from 'lucide-react'
 
-export default function LayoutShell({ children }: { children: React.ReactNode }) {
+function LayoutShellInner({ children }: { children: React.ReactNode }) {
   const path = usePathname()
   const isPublicPage = path.startsWith('/share')
   const [demo, setDemo] = useState(false)
@@ -37,5 +37,13 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         {children}
       </main>
     </div>
+  )
+}
+
+export default function LayoutShell({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <LayoutShellInner>{children}</LayoutShellInner>
+    </Suspense>
   )
 }
