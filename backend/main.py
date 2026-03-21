@@ -2081,6 +2081,11 @@ def quote_pdf(quote_id: int, db: Session = Depends(get_db)):
             valid_until_str = str(qt.valid_until)[:10]
 
     created_str = qt.created_at.strftime("%d/%m/%Y") if qt.created_at else datetime.now().strftime("%d/%m/%Y")
+    valid_until_html = (
+        f'<div class="meta-item"><div class="meta-label">Valide jusqu\'au</div>'
+        f'<div class="meta-value">{valid_until_str}</div></div>'
+        if valid_until_str else ""
+    )
 
     # Tableau des lignes
     rows_html = ""
@@ -2205,7 +2210,7 @@ def quote_pdf(quote_id: int, db: Session = Depends(get_db)):
     <div class="meta-label">Date d'émission</div>
     <div class="meta-value">{created_str}</div>
   </div>
-  {f'<div class="meta-item"><div class="meta-label">Valide jusqu\'au</div><div class="meta-value">{valid_until_str}</div></div>' if valid_until_str else ''}
+  {valid_until_html}
   <div class="meta-item">
     <div class="meta-label">TVA</div>
     <div class="meta-value">{qt.tva_rate:g}%</div>
