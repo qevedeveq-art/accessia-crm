@@ -1,58 +1,91 @@
 @echo off
-title ACCESSIA Pro — Dev (sans Docker)
+title ACCESSIA Pro — Dev
+setlocal
 
 echo.
-echo  ACCESSIA Pro — Mode Développement (sans Docker)
-echo  ══════════════════════════════════════════════════
+echo  ACCESSIA Pro — Mode Developpement
+echo  ══════════════════════════════════
 echo.
 
-:: Vérifier Python
-where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERREUR] Python 3.11+ requis.
-    pause & exit /b 1
+:: ── Chemins ────────────────────────────────────────────────────────────────
+set "ROOT=%~dp0"
+set "BACKEND=%ROOT%backend"
+set "FRONTEND=%ROOT%frontend"
+set "PYTHON310=C:\Users\qeved\AppData\Local\Programs\Python\Python310\python.exe"
+set "VENV_PYTHON=%BACKEND%\venv\Scripts\python.exe"
+
+:: ── Tuer les anciens processus sur 8000 et 3001 ────────────────────────────
+echo [0/4] Nettoyage des anciens processus...
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":8000 " ^| findstr "LISTENING"') do (
+    taskkill /PID %%a /F >nul 2>&1
 )
-
-:: Vérifier Node.js
-where node >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERREUR] Node.js 20+ requis.
-    pause & exit /b 1
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":3001 " ^| findstr "LISTENING"') do (
+    taskkill /PID %%a /F >nul 2>&1
 )
+timeout /t 1 /nobreak >nul
 
-:: Copier .env si absent
-if not exist ".env" copy .env.example .env > nul
+:: ── Backend : venv ──────────────────────────────────────────────────────────
+echo [1/4] Verification du venv Python...
+cd /d "%BACKEND%"
 
-:: ── Backend ──────────────────────────────────────────────────
-echo [1/3] Installation des dépendances Python...
-cd backend
 if not exist venv (
-    python -m venv venv
+    echo      Creation du venv avec Python 3.10...
+    if exist "%PYTHON310%" (
+        "%PYTHON310%" -m venv venv
+    ) else (
+        python -m venv venv
+    )
 )
-call venv\Scripts\activate.bat
-pip install -r requirements.txt -q
 
-echo [2/3] Démarrage du backend FastAPI (port 8000)...
-start "ACCESSIA Backend" cmd /k "venv\Scripts\activate.bat && uvicorn main:app --reload --port 8000"
-cd ..
+:: Verifier que pip est disponible dans le venv
+"%VENV_PYTHON%" -m pip --version >nul 2>&1
+if errorlevel 1 (
+    echo      Venv corrompu - recreation...
+    rmdir /s /q venv >nul 2>&1
+    if exist "%PYTHON310%" (
+        "%PYTHON310%" -m venv venv
+    ) else (
+        python -m venv venv
+    )
+)
 
-:: ── Frontend ─────────────────────────────────────────────────
-echo [3/3] Démarrage du frontend Next.js (port 3001)...
-cd frontend
+echo [2/4] Installation des dependances Python...
+"%VENV_PYTHON%" -m pip install -r requirements.txt -q --disable-pip-version-check 2>nul
+
+:: ── Backend : demarrage ─────────────────────────────────────────────────────
+echo [3/4] Demarrage du backend FastAPI (port 8000)...
+start "ACCESSIA Backend" cmd /k "cd /d "%BACKEND%" && "%VENV_PYTHON%" -m uvicorn main:app --reload --port 8000"
+
+:: Attendre que le backend soit pret (max 15 secondes)
+set /a tries=0
+:wait_backend
+timeout /t 2 /nobreak >nul
+curl -s http://localhost:8000/api/health >nul 2>&1
+if errorlevel 1 (
+    set /a tries+=1
+    if %tries% lss 7 goto wait_backend
+    echo      [ATTENTION] Backend lent a demarrer, continuons...
+) else (
+    echo      Backend pret !
+)
+
+:: ── Frontend : demarrage ────────────────────────────────────────────────────
+cd /d "%FRONTEND%"
 if not exist node_modules (
-    echo Installation des dépendances npm...
-    npm install
+    echo      Installation des dependances npm (premiere fois)...
+    npm install --legacy-peer-deps
 )
-start "ACCESSIA Frontend" cmd /k "npm run dev"
-cd ..
+start "ACCESSIA Frontend" cmd /k "cd /d "%FRONTEND%" && npm run dev"
 
+:: ── Done ───────────────────────────────────────────────────────────────────
 echo.
-echo ══════════════════════════════════════════════════
-echo  ✅ ACCESSIA Pro démarré en mode DEV !
+echo ══════════════════════════════════
+echo  ACCESSIA Pro en cours de demarrage
 echo.
-echo   → Application  : http://localhost:3001
-echo   → API (Swagger): http://localhost:8000/docs
-echo ══════════════════════════════════════════════════
+echo   Application  : http://localhost:3001
+echo   API Swagger  : http://localhost:8000/docs
+echo ══════════════════════════════════
 echo.
-timeout /t 5 /nobreak > nul
+timeout /t 6 /nobreak >nul
 start http://localhost:3001
+endlocal
