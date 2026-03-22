@@ -4,11 +4,11 @@ import { useEffect, useLayoutEffect, useState, useRef, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
-import { getClients, createClient, searchCompany, Client, ClientCreate, CompanySearchResult } from '@/lib/api'
+import { getClients, createClient, searchCompany, importClientsCsv, exportClientsCsv, Client, ClientCreate, CompanySearchResult } from '@/lib/api'
 import Link from 'next/link'
 import {
   Plus, Search, Building2, Mail, Phone, Loader2, Wand2, MapPin,
-  Users, TrendingUp, Briefcase, AlertCircle,
+  Users, TrendingUp, Briefcase, AlertCircle, Download, Upload,
 } from 'lucide-react'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
@@ -249,12 +249,36 @@ function ClientsContent() {
           <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
           <p className="text-sm text-gray-500 mt-0.5">{allClients.length} entrée(s)</p>
         </div>
-        <button
-          onClick={() => { setOpen(true); setError(''); setNameSuggestions([]); setShowDropdown(false) }}
-          className="flex items-center gap-2 bg-accessia-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors"
-        >
-          <Plus size={16} /> Nouveau client
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Export CSV */}
+          <a href={exportClientsCsv()} download
+            className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+            <Download size={14} /> Exporter
+          </a>
+
+          {/* Import CSV */}
+          <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
+            <Upload size={14} /> Importer
+            <input type="file" accept=".csv" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              try {
+                const result = await importClientsCsv(file)
+                alert(`${result.created} client(s) importé(s)${result.errors.length > 0 ? '\nErreurs: ' + result.errors.join(', ') : ''}`)
+                window.location.reload()
+              } catch (err: any) {
+                alert('Erreur import: ' + err.message)
+              }
+            }} />
+          </label>
+
+          <button
+            onClick={() => { setOpen(true); setError(''); setNameSuggestions([]); setShowDropdown(false) }}
+            className="flex items-center gap-2 bg-accessia-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors"
+          >
+            <Plus size={16} /> Nouveau client
+          </button>
+        </div>
       </div>
 
       {/* Cartes stats */}

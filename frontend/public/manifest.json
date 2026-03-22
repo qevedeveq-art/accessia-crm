@@ -1,0 +1,12 @@
+{
+  "name": "ACCESSIA Pro",
+  "short_name": "ACCESSIA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2850ff",
+  "icons": [
+    {"src": "/favicon.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/favicon.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}

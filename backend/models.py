@@ -170,6 +170,12 @@ class Quote(Base):
     items_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    sign_token    = Column(String(64), unique=True, nullable=True, index=True)
+    signed_at     = Column(DateTime, nullable=True)
+    signed_by     = Column(String(200), nullable=True)
+    sign_ip       = Column(String(45), nullable=True)
+    is_template   = Column(Boolean, default=False)
+    template_name = Column(String(200), nullable=True)
 
     client = relationship("Client")
     project = relationship("Project")
@@ -187,3 +193,53 @@ class TimeEntry(Base):
 
     project = relationship("Project")
     client = relationship("Client")
+
+
+class RecurringInvoice(Base):
+    __tablename__ = "recurring_invoices"
+    id                = Column(Integer, primary_key=True, index=True)
+    client_id         = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    project_id        = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
+    amount_ht         = Column(Float, nullable=False)
+    tva_rate          = Column(Float, default=20.0)
+    frequency         = Column(String(20), nullable=False)  # mensuel/trimestriel/annuel
+    next_billing_date = Column(DateTime, nullable=False)
+    active            = Column(Boolean, default=True)
+    description       = Column(String(500), nullable=True)
+    created_at        = Column(DateTime, default=_utcnow)
+    client            = relationship("Client")
+    project           = relationship("Project")
+
+
+class ProjectTemplate(Base):
+    __tablename__ = "project_templates"
+    id          = Column(Integer, primary_key=True, index=True)
+    name        = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    phases_json = Column(Text, nullable=True)  # JSON array [{name, tasks:[]}]
+    created_at  = Column(DateTime, default=_utcnow)
+
+
+class NpsSurvey(Base):
+    __tablename__ = "nps_surveys"
+    id          = Column(Integer, primary_key=True, index=True)
+    project_id  = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    client_id   = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    score       = Column(Integer, nullable=True)   # 0-10, null until answer
+    comment     = Column(Text, nullable=True)
+    share_token = Column(String(64), unique=True, nullable=False, index=True,
+                         default=lambda: uuid.uuid4().hex)
+    answered_at = Column(DateTime, nullable=True)
+    created_at  = Column(DateTime, default=_utcnow)
+    project     = relationship("Project")
+    client      = relationship("Client")
+
+
+class Webhook(Base):
+    __tablename__ = "webhooks"
+    id         = Column(Integer, primary_key=True, index=True)
+    url        = Column(String(500), nullable=False)
+    events     = Column(Text, nullable=False)  # JSON array ["quote.accepted","invoice.paid",...]
+    active     = Column(Boolean, default=True)
+    secret     = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=_utcnow)

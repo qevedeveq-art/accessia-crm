@@ -969,3 +969,241 @@ export const getTimeEntriesSummary = () =>
   isDemoMode()
     ? Promise.resolve([] as TimeEntrySummary[])
     : request<TimeEntrySummary[]>('/time-entries/summary')
+
+// ─── SIGNATURE DEVIS ─────────────────────────────────────────
+
+export interface QuoteSignData {
+  id: number
+  number: string
+  title: string
+  client_name: string
+  amount_ht: number
+  tva_rate: number
+  amount_ttc: number
+  description?: string
+  items: Array<{ label: string; qty: number; unit_price: number; total?: number }>
+  status: string
+  valid_until?: string
+  signed_at?: string
+  signed_by?: string
+  already_signed: boolean
+}
+
+export const getQuoteForSign = (token: string) =>
+  request<QuoteSignData>(`/quotes/sign/${token}`)
+
+export const signQuote = (token: string, signed_by: string) =>
+  request<{ message: string; signed_by: string; signed_at: string }>(`/quotes/sign/${token}`, {
+    method: 'POST',
+    body: JSON.stringify({ signed_by }),
+  })
+
+// ─── TEMPLATES DEVIS ─────────────────────────────────────────
+
+export const getQuoteTemplates = () =>
+  request<Quote[]>('/quote-templates')
+
+export const saveQuoteAsTemplate = (id: number, template_name: string) =>
+  request<{ message: string; template_name: string }>(`/quotes/${id}/save-template`, {
+    method: 'POST',
+    body: JSON.stringify({ template_name }),
+  })
+
+// ─── TEMPLATES PROJET ────────────────────────────────────────
+
+export interface ProjectTemplate {
+  id: number
+  name: string
+  description?: string
+  phases_json?: string
+  created_at?: string
+}
+
+export const getProjectTemplates = () =>
+  request<ProjectTemplate[]>('/project-templates')
+
+export const createProjectTemplate = (data: { name: string; description?: string; phases_json?: string }) =>
+  request<{ id: number }>('/project-templates', { method: 'POST', body: JSON.stringify(data) })
+
+export const deleteProjectTemplate = (id: number) =>
+  request<void>(`/project-templates/${id}`, { method: 'DELETE' })
+
+// ─── FACTURATION RÉCURRENTE ───────────────────────────────────
+
+export interface RecurringInvoice {
+  id: number
+  client_id: number
+  client_name: string
+  project_id?: number
+  amount_ht: number
+  tva_rate: number
+  frequency: string
+  next_billing_date: string
+  active: boolean
+  description?: string
+  created_at?: string
+}
+
+export const getRecurringInvoices = () =>
+  request<RecurringInvoice[]>('/recurring-invoices')
+
+export const createRecurringInvoice = (data: {
+  client_id: number
+  project_id?: number
+  amount_ht: number
+  tva_rate?: number
+  frequency: string
+  next_billing_date: string
+  description?: string
+}) => request<{ id: number }>('/recurring-invoices', { method: 'POST', body: JSON.stringify(data) })
+
+export const updateRecurringInvoice = (id: number, data: Partial<RecurringInvoice>) =>
+  request<{ id: number; active: boolean }>(`/recurring-invoices/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+
+export const deleteRecurringInvoice = (id: number) =>
+  request<void>(`/recurring-invoices/${id}`, { method: 'DELETE' })
+
+// ─── NPS ─────────────────────────────────────────────────────
+
+export interface NpsSurveyData {
+  id: number
+  project_name: string
+  client_name: string
+  score?: number
+  comment?: string
+  answered_at?: string
+  already_answered: boolean
+}
+
+export interface NpsEntry {
+  id: number
+  project_id: number
+  project_name: string
+  client_name: string
+  score?: number
+  comment?: string
+  share_token: string
+  answered_at?: string
+  created_at?: string
+}
+
+export interface NpsAverage {
+  average?: number
+  nps_score?: number
+  count: number
+  promoters: number
+  detractors: number
+  passives: number
+}
+
+export const getNpsSurvey = (token: string) =>
+  request<NpsSurveyData>(`/nps/${token}`)
+
+export const submitNps = (token: string, score: number, comment?: string) =>
+  request<{ message: string }>(`/nps/${token}`, {
+    method: 'POST',
+    body: JSON.stringify({ score, comment }),
+  })
+
+export const getNpsList = () =>
+  request<NpsEntry[]>('/nps')
+
+export const getNpsAverage = () =>
+  request<NpsAverage>('/nps/average')
+
+// ─── EXPORT / IMPORT ─────────────────────────────────────────
+
+export const exportClientsCsv = () => `${BASE}/export/clients`
+export const exportInvoicesCsv = () => `${BASE}/export/invoices`
+export const exportProjectsCsv = () => `${BASE}/export/projects`
+export const exportCalendarIcs = () => `${BASE}/export/calendar`
+
+export const importClientsCsv = async (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${BASE}/import/clients`, { method: 'POST', body: form })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Erreur import')
+  }
+  return res.json() as Promise<{ created: number; errors: string[] }>
+}
+
+export const getCashflow = () =>
+  request<{
+    monthly_forecast: Array<{ month: string; label: string; encaisse: number; prevu: number }>
+    margin_by_category: Array<{ type: string; ca: number }>
+    rolling_12m_ca: number
+  }>('/reporting/cashflow')
+
+// ─── WEBHOOKS ────────────────────────────────────────────────
+
+export interface WebhookItem {
+  id: number
+  url: string
+  events: string[]
+  active: boolean
+  created_at?: string
+}
+
+export const getWebhooks = () =>
+  request<WebhookItem[]>('/webhooks')
+
+export const createWebhook = (data: { url: string; events: string[]; secret?: string }) =>
+  request<{ id: number }>('/webhooks', { method: 'POST', body: JSON.stringify(data) })
+
+export const updateWebhook = (id: number, data: { active?: boolean; events?: string[] }) =>
+  request<{ id: number; active: boolean }>(`/webhooks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+
+export const deleteWebhook = (id: number) =>
+  request<void>(`/webhooks/${id}`, { method: 'DELETE' })
+
+// ─── RECHERCHE GLOBALE ────────────────────────────────────────
+
+export interface SearchResults {
+  clients: Array<{ id: number; name: string; sector?: string; status: string }>
+  projects: Array<{ id: number; code: string; name: string; client_name: string }>
+  quotes: Array<{ id: number; number: string; title: string; client_name: string; status: string }>
+  tasks: Array<{ id: number; title: string; status: string; priority: string }>
+}
+
+export const globalSearch = (q: string) =>
+  request<SearchResults>(`/search?q=${encodeURIComponent(q)}`)
+
+// ─── CACHE / MODE HORS-LIGNE ──────────────────────────────────
+
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+export let isOffline = false
+
+function cacheKey(path: string) {
+  return `accessia_cache_${path}`
+}
+
+function cacheGet<T>(path: string): T | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(cacheKey(path))
+    if (!raw) return null
+    const { data, ts } = JSON.parse(raw)
+    if (Date.now() - ts > CACHE_TTL) return null
+    return data as T
+  } catch {
+    return null
+  }
+}
+
+function cacheSet(path: string, data: unknown) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(cacheKey(path), JSON.stringify({ data, ts: Date.now() }))
+  } catch {
+    // storage full — ignore
+  }
+}

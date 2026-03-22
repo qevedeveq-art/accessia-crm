@@ -20,6 +20,9 @@ import {
   Package,
   Receipt,
   BookOpen,
+  Sun,
+  LayoutTemplate,
+  Webhook,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { isDemoMode, enableDemoMode, disableDemoMode, DEMO_KEY } from '@/lib/api'
@@ -37,6 +40,9 @@ const nav = [
   { href: '/crm',         label: 'CRM',             icon: FileText },
   { href: '/reporting',   label: 'Reporting',       icon: BarChart2 },
   { href: '/guide',       label: 'Guide RGPD',      icon: BookOpen },
+  { href: '/today',     label: 'Mon Jour',   icon: Sun },
+  { href: '/templates', label: 'Templates',  icon: LayoutTemplate },
+  { href: '/webhooks',  label: 'Webhooks',   icon: Webhook },
 ]
 
 export default function Sidebar() {
@@ -125,6 +131,7 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="px-4 py-4 border-t border-accessia-800 text-[11px] text-accessia-500">
+        <div className="px-3 py-2 text-xs text-gray-400 text-center">⌘K Recherche globale</div>
         <p>ACCESSIA Pro © 2026</p>
         <p className="mt-0.5">Conseil IA · PME & Entrepreneurs</p>
       </div>

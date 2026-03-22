@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react'
 import {
   getInvoices, createInvoice, updateInvoiceStatus,
   getQuotes, createQuote, updateQuoteStatus, convertQuoteToInvoice, deleteQuote,
-  getClients, Invoice, Client, InvoiceCreate, Quote, QuoteCreate,
+  getClients, getRecurringInvoices, exportInvoicesCsv,
+  Invoice, Client, InvoiceCreate, Quote, QuoteCreate,
 } from '@/lib/api'
-import { Plus, TrendingUp, Clock, CheckCircle, FileText, ArrowRight, Trash2 } from 'lucide-react'
+import { Plus, TrendingUp, Clock, CheckCircle, FileText, ArrowRight, Trash2, Download } from 'lucide-react'
 
 const STATUS_INVOICE = ['brouillon', 'envoyee', 'payee', 'annulee']
 const STATUS_QUOTE   = ['brouillon', 'envoye', 'accepte', 'refuse', 'expire']
@@ -26,10 +27,11 @@ const EMPTY_INV: InvoiceCreate = { client_id: 0, amount_ht: 0, tva_rate: 20, sta
 const EMPTY_QUOTE: QuoteCreate = { client_id: 0, title: '', amount_ht: 0, tva_rate: 20, status: 'brouillon' }
 
 export default function FinancesPage() {
-  const [tab, setTab] = useState<'factures' | 'devis'>('factures')
+  const [tab, setTab] = useState<'factures' | 'devis' | 'recurrents'>('factures')
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [recurringInvoices, setRecurringInvoices] = useState<any[]>([])
   const [openInv, setOpenInv] = useState(false)
   const [openQuote, setOpenQuote] = useState(false)
   const [formInv, setFormInv] = useState<InvoiceCreate>(EMPTY_INV)
@@ -41,6 +43,7 @@ export default function FinancesPage() {
     getInvoices().then(setInvoices).catch(e => setError(e.message))
     getQuotes().then(setQuotes).catch(() => {})
     getClients().then(setClients).catch(() => {})
+    getRecurringInvoices().then(setRecurringInvoices).catch(() => {})
   }
   useEffect(() => { loadAll() }, [])
 
@@ -109,17 +112,25 @@ export default function FinancesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Finances</h1>
           <p className="text-sm text-gray-500 mt-0.5">Facturation & trésorerie</p>
         </div>
-        {tab === 'factures' ? (
-          <button onClick={() => { setOpenInv(true); setError('') }}
-            className="flex items-center gap-2 bg-accessia-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors">
-            <Plus size={16} /> Nouvelle facture
-          </button>
-        ) : (
-          <button onClick={() => { setOpenQuote(true); setError('') }}
-            className="flex items-center gap-2 bg-accessia-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors">
-            <Plus size={16} /> Nouveau devis
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {tab === 'factures' && (
+            <a href={exportInvoicesCsv()} download
+              className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+              <Download size={14} /> Exporter CSV
+            </a>
+          )}
+          {tab === 'factures' ? (
+            <button onClick={() => { setOpenInv(true); setError('') }}
+              className="flex items-center gap-2 bg-accessia-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors">
+              <Plus size={16} /> Nouvelle facture
+            </button>
+          ) : tab === 'devis' ? (
+            <button onClick={() => { setOpenQuote(true); setError('') }}
+              className="flex items-center gap-2 bg-accessia-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accessia-700 transition-colors">
+              <Plus size={16} /> Nouveau devis
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {error && !openInv && !openQuote && (
@@ -131,7 +142,7 @@ export default function FinancesPage() {
 
       {/* Onglets */}
       <div className="flex border-b border-gray-200 mb-6 gap-1">
-        {([['factures', 'Factures'], ['devis', 'Devis']] as const).map(([key, label]) => (
+        {([['factures', 'Factures'], ['devis', 'Devis'], ['recurrents', 'Récurrents']] as const).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === key ? 'border-accessia-600 text-accessia-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {label}
@@ -270,6 +281,34 @@ export default function FinancesPage() {
             </table>
           </div>
         </>
+      )}
+
+      {tab === 'recurrents' && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                {['Client', 'Montant HT', 'Fréquence', 'Prochaine facturation', 'Statut'].map(h => (
+                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {recurringInvoices.length === 0 && (
+                <tr><td colSpan={5} className="text-center py-10 text-gray-400">Aucune facture récurrente</td></tr>
+              )}
+              {recurringInvoices.map((r: any) => (
+                <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium">{r.client_name ?? '—'}</td>
+                  <td className="px-4 py-3">{r.amount_ht != null ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(r.amount_ht) : '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{r.frequency ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{r.next_date ? new Date(r.next_date).toLocaleDateString('fr-FR') : '—'}</td>
+                  <td className="px-4 py-3"><Badge v={r.status ?? 'brouillon'} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* Modal nouvelle facture */}

@@ -13,6 +13,16 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.png',
   },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'ACCESSIA Pro',
+  },
+}
+
+export const viewport = {
+  themeColor: '#2850ff',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

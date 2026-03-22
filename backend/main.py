@@ -9,13 +9,16 @@ import shutil
 import logging
 import subprocess
 import httpx
+import csv, io, hmac, hashlib
+from apscheduler.schedulers.background import BackgroundScheduler
+from dateutil.relativedelta import relativedelta
 from datetime import datetime, timezone, date as date_type
 from pathlib import Path
 from enum import Enum
 from typing import Optional, List
 
-from fastapi import FastAPI, Depends, HTTPException, Query
-from fastapi.responses import Response, RedirectResponse
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Request, BackgroundTasks
+from fastapi.responses import Response, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 # TrustedHostMiddleware retiré — bloquait les requêtes Docker
 from sqlalchemy.orm import Session, joinedload
@@ -25,7 +28,7 @@ from pydantic import BaseModel, Field, field_validator
 from slugify import slugify
 
 from database import engine, get_db, Base
-from models import Client, Project, Contact, Invoice, Activity, Task, Diagnostic, Quote, TimeEntry
+from models import Client, Project, Contact, Invoice, Activity, Task, Diagnostic, Quote, TimeEntry, RecurringInvoice, ProjectTemplate, NpsSurvey, Webhook
 import file_service
 
 log = logging.getLogger(__name__)
@@ -118,6 +121,65 @@ def _run_migrations():
             pass  # colonne déjà présente
         except Exception as mig_err:
             log.warning("Migration items_json inattendue : %s", mig_err)
+        # New columns for Quote (signature + templates)
+        for col_sql in [
+            "ALTER TABLE quotes ADD COLUMN sign_token VARCHAR(64)",
+            "ALTER TABLE quotes ADD COLUMN signed_at DATETIME",
+            "ALTER TABLE quotes ADD COLUMN signed_by VARCHAR(200)",
+            "ALTER TABLE quotes ADD COLUMN sign_ip VARCHAR(45)",
+            "ALTER TABLE quotes ADD COLUMN is_template BOOLEAN DEFAULT 0",
+            "ALTER TABLE quotes ADD COLUMN template_name VARCHAR(200)",
+        ]:
+            try:
+                cursor.execute(col_sql)
+            except sqlite3.OperationalError:
+                pass
+        # New tables
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recurring_invoices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+                amount_ht REAL NOT NULL,
+                tva_rate REAL DEFAULT 20.0,
+                frequency VARCHAR(20) NOT NULL,
+                next_billing_date DATETIME NOT NULL,
+                active BOOLEAN DEFAULT 1,
+                description VARCHAR(500),
+                created_at DATETIME
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS project_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(200) NOT NULL,
+                description TEXT,
+                phases_json TEXT,
+                created_at DATETIME
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS nps_surveys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                score INTEGER,
+                comment TEXT,
+                share_token VARCHAR(64) UNIQUE NOT NULL,
+                answered_at DATETIME,
+                created_at DATETIME
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS webhooks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url VARCHAR(500) NOT NULL,
+                events TEXT NOT NULL,
+                active BOOLEAN DEFAULT 1,
+                secret VARCHAR(64),
+                created_at DATETIME
+            )
+        """)
         conn.commit()
         conn.close()
         log.info("Migrations terminées avec succès")
@@ -125,6 +187,111 @@ def _run_migrations():
         log.warning(f"Migration automatique échouée (non critique) : {e}")
 
 _run_migrations()
+
+# ═══════════════════════════════════════════════════════════════
+# SCHEDULER — Relances + Facturation récurrente
+# ═══════════════════════════════════════════════════════════════
+
+_scheduler = BackgroundScheduler(daemon=True)
+
+
+def _job_relances_automatiques():
+    """Factures en retard & devis expirés → créer tâche relance."""
+    from database import SessionLocal  # évite import circulaire
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        # Factures envoyées dont due_date < now → relance si pas déjà créée
+        late_invoices = db.query(Invoice).filter(
+            Invoice.status == "envoyee",
+            Invoice.due_date < now,
+        ).all()
+        for inv in late_invoices:
+            exists = db.query(Task).filter(
+                Task.client_id == inv.client_id,
+                Task.type == "relance",
+                Task.status != "fait",
+                Task.description.like(f"%{inv.number}%"),
+            ).first()
+            if not exists:
+                t = Task(
+                    client_id=inv.client_id,
+                    project_id=inv.project_id,
+                    title=f"Relance facture {inv.number}",
+                    description=f"Facture {inv.number} en retard de paiement.",
+                    type="relance",
+                    priority="haute",
+                    status="a_faire",
+                    created_at=now,
+                )
+                db.add(t)
+        # Devis envoyés expirés → status=expire
+        expired_quotes = db.query(Quote).filter(
+            Quote.status == "envoye",
+            Quote.valid_until < now,
+        ).all()
+        for qt in expired_quotes:
+            qt.status = "expire"
+        db.commit()
+    except Exception as e:
+        log.warning(f"_job_relances_automatiques error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _job_facturation_recurrente():
+    """Crée les factures récurrentes dont next_billing_date <= now."""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        due = db.query(RecurringInvoice).filter(
+            RecurringInvoice.active == True,
+            RecurringInvoice.next_billing_date <= now,
+        ).all()
+        for rec in due:
+            # Numéro facture
+            last = db.query(Invoice).order_by(Invoice.id.desc()).first()
+            n = int(last.number.split("-")[-1]) + 1 if last else 1
+            inv = Invoice(
+                number=f"FAC-{datetime.now().year}-{n:04d}",
+                client_id=rec.client_id,
+                project_id=rec.project_id,
+                amount_ht=rec.amount_ht,
+                tva_rate=rec.tva_rate,
+                status="brouillon",
+                notes=rec.description or "Facture récurrente",
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(inv)
+            # Avancer next_billing_date
+            freq = rec.frequency
+            if freq == "mensuel":
+                rec.next_billing_date = rec.next_billing_date + relativedelta(months=1)
+            elif freq == "trimestriel":
+                rec.next_billing_date = rec.next_billing_date + relativedelta(months=3)
+            elif freq == "annuel":
+                rec.next_billing_date = rec.next_billing_date + relativedelta(years=1)
+        db.commit()
+    except Exception as e:
+        log.warning(f"_job_facturation_recurrente error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+try:
+    _scheduler.add_job(_job_relances_automatiques, "interval", hours=24, id="relances")
+    _scheduler.add_job(_job_facturation_recurrente, "interval", hours=24, id="recurrents")
+    _scheduler.start()
+    import atexit
+    atexit.register(lambda: _scheduler.shutdown(wait=False))
+    log.info("APScheduler démarré (relances + récurrents)")
+except Exception as _sched_err:
+    log.warning(f"APScheduler non démarré : {_sched_err}")
+
 file_service.ensure_standard_dirs()
 
 app = FastAPI(
@@ -783,6 +950,18 @@ def update_project(project_id: int, data: ProjectUpdate, db: Session = Depends(g
 
     project.updated_at = _now()
     db.commit()
+    # Auto-create NPS survey when project is completed
+    if project.status == "termine":
+        existing_nps = db.query(NpsSurvey).filter(NpsSurvey.project_id == project.id).first()
+        if not existing_nps:
+            nps = NpsSurvey(
+                project_id=project.id,
+                client_id=project.client_id,
+                share_token=uuid.uuid4().hex,
+                created_at=_now(),
+            )
+            db.add(nps)
+            db.commit()
     db.refresh(project)
     return _serialize_project(project)
 
@@ -851,6 +1030,7 @@ def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db)):
 def update_invoice_status(
     invoice_id: int,
     data: InvoiceStatusUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
@@ -861,6 +1041,8 @@ def update_invoice_status(
         invoice.paid_date = _now()
     invoice.updated_at = _now()
     db.commit()
+    if data.status == InvoiceStatus.payee:
+        background_tasks.add_task(_fire_webhooks_sync, db_url=os.getenv("DATABASE_URL", "sqlite:///./sensia.db"), event="invoice.paid", payload={"id": invoice.id, "number": invoice.number})
     return {"id": invoice.id, "status": invoice.status}
 
 
@@ -1534,6 +1716,7 @@ def create_quote(body: QuoteCreate, db: Session = Depends(get_db)):
         description=body.description,
         notes=body.notes,
         items_json=json.dumps(items_data, ensure_ascii=False),
+        sign_token=uuid.uuid4().hex,
         created_at=_now(),
         updated_at=_now(),
     )
@@ -1582,13 +1765,15 @@ def update_quote(quote_id: int, body: QuoteUpdate, db: Session = Depends(get_db)
 
 
 @app.patch("/api/quotes/{quote_id}/status")
-def patch_quote_status(quote_id: int, body: dict, db: Session = Depends(get_db)):
+def patch_quote_status(quote_id: int, body: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     qt = db.query(Quote).filter(Quote.id == quote_id).first()
     if not qt:
         raise HTTPException(404, "Devis non trouvé")
     qt.status = body.get("status", qt.status)
     qt.updated_at = _now()
     db.commit()
+    if qt.status == "accepte":
+        background_tasks.add_task(_fire_webhooks_sync, db_url=os.getenv("DATABASE_URL", "sqlite:///./sensia.db"), event="quote.accepted", payload={"id": qt.id, "number": qt.number})
     return {"id": qt.id, "status": qt.status}
 
 
@@ -1647,6 +1832,11 @@ def _serialize_quote(qt: Quote) -> dict:
         "notes": qt.notes,
         "created_at": qt.created_at.isoformat() if qt.created_at else None,
         "updated_at": qt.updated_at.isoformat() if qt.updated_at else None,
+        "sign_token": getattr(qt, "sign_token", None),
+        "signed_at": qt.signed_at.isoformat() if getattr(qt, "signed_at", None) else None,
+        "signed_by": getattr(qt, "signed_by", None),
+        "is_template": getattr(qt, "is_template", False),
+        "template_name": getattr(qt, "template_name", None),
     }
 
 
@@ -2472,3 +2662,635 @@ def health():
         "status": "ok",
         "version": "1.2.0",
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# WEBHOOK HELPER
+# ═══════════════════════════════════════════════════════════════
+
+def _fire_webhooks_sync(db_url: str, event: str, payload: dict):
+    """Appelé via BackgroundTasks pour ne pas bloquer la réponse."""
+    import sqlite3 as _sqlite3
+    db_path = db_url.replace("sqlite:////", "/").replace("sqlite:///", "")
+    try:
+        conn = _sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT url, secret FROM webhooks WHERE active=1")
+        hooks = cursor.fetchall()
+        conn.close()
+    except Exception:
+        return
+    body = json.dumps({"event": event, "data": payload}).encode()
+    with httpx.Client(timeout=5) as client:
+        for url, secret in hooks:
+            headers = {"Content-Type": "application/json"}
+            if secret:
+                sig = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+                headers["X-ACCESSIA-Signature"] = sig
+            try:
+                client.post(url, content=body, headers=headers)
+            except Exception:
+                pass
+
+
+# ═══════════════════════════════════════════════════════════════
+# SIGNATURE DE DEVIS (PUBLIC — sans auth)
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/quotes/sign/{token}")
+def get_quote_for_sign(token: str, db: Session = Depends(get_db)):
+    qt = db.query(Quote).options(joinedload(Quote.client)).filter(Quote.sign_token == token).first()
+    if not qt:
+        raise HTTPException(404, "Devis introuvable ou lien invalide")
+    items = _safe_json_loads(qt.items_json)
+    return {
+        "id": qt.id,
+        "number": qt.number,
+        "title": qt.title,
+        "client_name": qt.client.name if qt.client else "",
+        "amount_ht": qt.amount_ht,
+        "tva_rate": qt.tva_rate,
+        "amount_ttc": round(qt.amount_ht * (1 + qt.tva_rate / 100), 2),
+        "description": qt.description,
+        "items": items,
+        "status": qt.status,
+        "valid_until": qt.valid_until.isoformat() if qt.valid_until else None,
+        "signed_at": qt.signed_at.isoformat() if qt.signed_at else None,
+        "signed_by": qt.signed_by,
+        "already_signed": qt.signed_at is not None,
+    }
+
+
+class SignQuoteBody(BaseModel):
+    signed_by: str = Field(..., min_length=1, max_length=200)
+
+
+@app.post("/api/quotes/sign/{token}")
+def sign_quote(token: str, body: SignQuoteBody, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    qt = db.query(Quote).filter(Quote.sign_token == token).first()
+    if not qt:
+        raise HTTPException(404, "Devis introuvable ou lien invalide")
+    if qt.signed_at:
+        raise HTTPException(409, "Ce devis a déjà été signé")
+    qt.signed_at = _now()
+    qt.signed_by = body.signed_by
+    qt.sign_ip = request.client.host if request.client else None
+    qt.status = "accepte"
+    qt.updated_at = _now()
+    db.commit()
+    background_tasks.add_task(_fire_webhooks_sync, db_url=os.getenv("DATABASE_URL", "sqlite:///./sensia.db"), event="quote.accepted", payload={"id": qt.id, "number": qt.number, "signed_by": body.signed_by})
+    return {"message": "Devis signé avec succès", "signed_by": qt.signed_by, "signed_at": qt.signed_at.isoformat()}
+
+
+class SaveTemplateBody(BaseModel):
+    template_name: str = Field(..., min_length=1, max_length=200)
+
+
+@app.post("/api/quotes/{quote_id}/save-template")
+def save_quote_as_template(quote_id: int, body: SaveTemplateBody, db: Session = Depends(get_db)):
+    qt = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not qt:
+        raise HTTPException(404, "Devis non trouvé")
+    qt.is_template = True
+    qt.template_name = body.template_name
+    db.commit()
+    return {"message": "Sauvegardé comme modèle", "template_name": qt.template_name}
+
+
+@app.get("/api/quote-templates")
+def list_quote_templates(db: Session = Depends(get_db)):
+    templates = db.query(Quote).filter(Quote.is_template == True).options(joinedload(Quote.client)).all()
+    return [_serialize_quote(qt) for qt in templates]
+
+
+# ═══════════════════════════════════════════════════════════════
+# FACTURATION RÉCURRENTE
+# ═══════════════════════════════════════════════════════════════
+
+class RecurringInvoiceCreate(BaseModel):
+    client_id: int
+    project_id: Optional[int] = None
+    amount_ht: float
+    tva_rate: float = 20.0
+    frequency: str  # mensuel/trimestriel/annuel
+    next_billing_date: str
+    description: Optional[str] = None
+
+
+@app.get("/api/recurring-invoices")
+def list_recurring_invoices(db: Session = Depends(get_db)):
+    items = db.query(RecurringInvoice).options(joinedload(RecurringInvoice.client)).order_by(RecurringInvoice.id.desc()).all()
+    return [
+        {
+            "id": r.id,
+            "client_id": r.client_id,
+            "client_name": r.client.name if r.client else "",
+            "project_id": r.project_id,
+            "amount_ht": r.amount_ht,
+            "tva_rate": r.tva_rate,
+            "frequency": r.frequency,
+            "next_billing_date": r.next_billing_date.isoformat() if r.next_billing_date else None,
+            "active": r.active,
+            "description": r.description,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in items
+    ]
+
+
+@app.post("/api/recurring-invoices", status_code=201)
+def create_recurring_invoice(body: RecurringInvoiceCreate, db: Session = Depends(get_db)):
+    try:
+        nbd = datetime.fromisoformat(body.next_billing_date.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(422, "Format de date invalide pour next_billing_date")
+    r = RecurringInvoice(
+        client_id=body.client_id,
+        project_id=body.project_id,
+        amount_ht=body.amount_ht,
+        tva_rate=body.tva_rate,
+        frequency=body.frequency,
+        next_billing_date=nbd,
+        description=body.description,
+        created_at=_now(),
+    )
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return {"id": r.id}
+
+
+@app.patch("/api/recurring-invoices/{rid}")
+def update_recurring_invoice(rid: int, body: dict, db: Session = Depends(get_db)):
+    r = db.query(RecurringInvoice).filter(RecurringInvoice.id == rid).first()
+    if not r:
+        raise HTTPException(404, "Récurrent non trouvé")
+    for k, v in body.items():
+        if hasattr(r, k):
+            setattr(r, k, v)
+    db.commit()
+    return {"id": r.id, "active": r.active}
+
+
+@app.delete("/api/recurring-invoices/{rid}", status_code=204)
+def delete_recurring_invoice(rid: int, db: Session = Depends(get_db)):
+    r = db.query(RecurringInvoice).filter(RecurringInvoice.id == rid).first()
+    if not r:
+        raise HTTPException(404, "Récurrent non trouvé")
+    db.delete(r)
+    db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════
+# RAPPORT DE MISSION PDF
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/projects/{project_id}/report-pdf")
+def project_report_pdf(project_id: int, db: Session = Depends(get_db)):
+    project = db.query(Project).options(joinedload(Project.client)).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Projet non trouvé")
+    invoices = db.query(Invoice).filter(Invoice.project_id == project_id).all()
+    tasks_done = db.query(Task).filter(Task.project_id == project_id, Task.status == "fait").all()
+    time_entries = db.query(TimeEntry).filter(TimeEntry.project_id == project_id).all()
+    total_hours = sum(e.duration_minutes for e in time_entries) / 60.0
+    total_ht = sum(inv.amount_ht for inv in invoices)
+
+    html = f"""<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<style>
+body{{font-family:Arial,sans-serif;margin:40px;color:#222}}
+h1{{color:#2850ff}}h2{{color:#444;border-bottom:1px solid #ddd;padding-bottom:4px}}
+table{{width:100%;border-collapse:collapse;margin:12px 0}}
+th,td{{padding:8px 12px;border:1px solid #ddd;text-align:left}}
+th{{background:#f4f4f4}}
+.kpi{{display:inline-block;margin:8px 16px 8px 0;padding:12px 20px;background:#f0f4ff;border-radius:8px}}
+</style></head><body>
+<h1>Rapport de Mission — {project.name}</h1>
+<p><strong>Client :</strong> {project.client.name if project.client else "—"} &nbsp;|&nbsp;
+<strong>Code :</strong> {project.code} &nbsp;|&nbsp;
+<strong>Statut :</strong> {project.status}</p>
+<div>
+<span class="kpi"><strong>Heures totales</strong><br>{total_hours:.1f} h</span>
+<span class="kpi"><strong>CA HT généré</strong><br>{total_ht:,.0f} €</span>
+<span class="kpi"><strong>Tâches réalisées</strong><br>{len(tasks_done)}</span>
+</div>
+<h2>Tâches réalisées</h2>
+<table><tr><th>Titre</th><th>Complété le</th></tr>
+{''.join(f"<tr><td>{t.title}</td><td>{t.completed_at.strftime('%d/%m/%Y') if t.completed_at else '—'}</td></tr>" for t in tasks_done)}
+</table>
+<h2>Factures émises</h2>
+<table><tr><th>Numéro</th><th>Montant HT</th><th>Statut</th><th>Date</th></tr>
+{''.join(f"<tr><td>{inv.number}</td><td>{inv.amount_ht:,.0f} €</td><td>{inv.status}</td><td>{inv.issued_date.strftime('%d/%m/%Y') if inv.issued_date else '—'}</td></tr>" for inv in invoices)}
+</table>
+<div style="margin-top:40px;font-size:12px;color:#999">
+Document généré le {datetime.now().strftime("%d/%m/%Y à %H:%M")} — ACCESSIA Pro
+</div></body></html>"""
+
+    try:
+        import weasyprint  # type: ignore
+        pdf_bytes = weasyprint.HTML(string=html).write_pdf()
+        return Response(content=pdf_bytes, media_type="application/pdf",
+                        headers={"Content-Disposition": f'attachment; filename="rapport_{project.code}.pdf"'})
+    except Exception:
+        return Response(content=html.encode("utf-8"), media_type="text/html; charset=utf-8")
+
+
+# ═══════════════════════════════════════════════════════════════
+# NPS SURVEYS
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/nps/average")
+def nps_average_top(db: Session = Depends(get_db)):
+    answered = db.query(NpsSurvey).filter(NpsSurvey.score.isnot(None)).all()
+    if not answered:
+        return {"average": None, "count": 0, "promoters": 0, "detractors": 0, "passives": 0}
+    scores = [s.score for s in answered]
+    promoters = sum(1 for s in scores if s >= 9)
+    detractors = sum(1 for s in scores if s <= 6)
+    passives = len(scores) - promoters - detractors
+    nps_score = round((promoters - detractors) / len(scores) * 100)
+    return {
+        "average": round(sum(scores) / len(scores), 1),
+        "nps_score": nps_score,
+        "count": len(scores),
+        "promoters": promoters,
+        "detractors": detractors,
+        "passives": passives,
+    }
+
+
+@app.get("/api/nps/{token}")
+def get_nps_survey(token: str, db: Session = Depends(get_db)):
+    nps = db.query(NpsSurvey).options(joinedload(NpsSurvey.project), joinedload(NpsSurvey.client)).filter(NpsSurvey.share_token == token).first()
+    if not nps:
+        raise HTTPException(404, "Enquête non trouvée")
+    return {
+        "id": nps.id,
+        "project_name": nps.project.name if nps.project else "",
+        "client_name": nps.client.name if nps.client else "",
+        "score": nps.score,
+        "comment": nps.comment,
+        "answered_at": nps.answered_at.isoformat() if nps.answered_at else None,
+        "already_answered": nps.answered_at is not None,
+    }
+
+
+class NpsSubmitBody(BaseModel):
+    score: int = Field(..., ge=0, le=10)
+    comment: Optional[str] = None
+
+
+@app.post("/api/nps/{token}")
+def submit_nps(token: str, body: NpsSubmitBody, db: Session = Depends(get_db)):
+    nps = db.query(NpsSurvey).filter(NpsSurvey.share_token == token).first()
+    if not nps:
+        raise HTTPException(404, "Enquête non trouvée")
+    if nps.answered_at:
+        raise HTTPException(409, "Enquête déjà répondue")
+    nps.score = body.score
+    nps.comment = body.comment
+    nps.answered_at = _now()
+    db.commit()
+    return {"message": "Merci pour votre retour !"}
+
+
+@app.get("/api/nps")
+def list_nps(db: Session = Depends(get_db)):
+    surveys = db.query(NpsSurvey).options(joinedload(NpsSurvey.project), joinedload(NpsSurvey.client)).order_by(NpsSurvey.created_at.desc()).all()
+    return [
+        {
+            "id": s.id,
+            "project_id": s.project_id,
+            "project_name": s.project.name if s.project else "",
+            "client_name": s.client.name if s.client else "",
+            "score": s.score,
+            "comment": s.comment,
+            "share_token": s.share_token,
+            "answered_at": s.answered_at.isoformat() if s.answered_at else None,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in surveys
+    ]
+
+
+@app.get("/api/nps/average")
+def nps_average(db: Session = Depends(get_db)):
+    answered = db.query(NpsSurvey).filter(NpsSurvey.score.isnot(None)).all()
+    if not answered:
+        return {"average": None, "count": 0, "promoters": 0, "detractors": 0, "passives": 0}
+    scores = [s.score for s in answered]
+    promoters = sum(1 for s in scores if s >= 9)
+    detractors = sum(1 for s in scores if s <= 6)
+    passives = len(scores) - promoters - detractors
+    nps_score = round((promoters - detractors) / len(scores) * 100)
+    return {
+        "average": round(sum(scores) / len(scores), 1),
+        "nps_score": nps_score,
+        "count": len(scores),
+        "promoters": promoters,
+        "detractors": detractors,
+        "passives": passives,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# PORTAIL CLIENT ÉTENDU — Modifier endpoint existant
+# ═══════════════════════════════════════════════════════════════
+# Note: The portal endpoint is already defined earlier in main.py.
+# We add a separate enhanced version:
+
+@app.get("/api/portal-v2/{token}")
+def get_client_portal_v2(token: str, db: Session = Depends(get_db)):
+    """Extended portal including quotes and documents."""
+    from models import Diagnostic as DiagModel
+    client = db.query(Client).filter(Client.slug == token).first()
+    if not client:
+        # try to find by portal_token field if it exists
+        raise HTTPException(404, "Portail introuvable")
+    projects = db.query(Project).filter(Project.client_id == client.id).all()
+    invoices = db.query(Invoice).filter(Invoice.client_id == client.id).all()
+    quotes = db.query(Quote).filter(Quote.client_id == client.id, Quote.status.in_(["envoye", "accepte"])).all()
+    diagnostics = db.query(DiagModel).filter(DiagModel.client_id == client.id).all()
+    return {
+        "client_name": client.name,
+        "sector": client.sector,
+        "projects": [{"code": p.code, "name": p.name, "status": p.status} for p in projects],
+        "invoices": [{"number": i.number, "amount_ttc": round(i.amount_ht * (1 + i.tva_rate / 100), 2), "status": i.status, "issued_date": i.issued_date.isoformat() if i.issued_date else None} for i in invoices],
+        "quotes": [{"number": qt.number, "title": qt.title, "amount_ttc": round(qt.amount_ht * (1 + qt.tva_rate / 100), 2), "status": qt.status, "sign_token": qt.sign_token} for qt in quotes],
+        "diagnostics": [{"type": d.type, "title": d.title, "share_token": d.share_token} for d in diagnostics],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# EXPORT CSV
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/export/clients")
+def export_clients_csv(db: Session = Depends(get_db)):
+    clients = db.query(Client).all()
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["id", "name", "type", "sector", "contact_name", "contact_email", "contact_phone", "status", "pipeline_stage", "created_at"])
+    writer.writeheader()
+    for c in clients:
+        writer.writerow({"id": c.id, "name": c.name, "type": c.type, "sector": c.sector or "", "contact_name": c.contact_name or "", "contact_email": c.contact_email or "", "contact_phone": c.contact_phone or "", "status": c.status, "pipeline_stage": c.pipeline_stage or "", "created_at": c.created_at.isoformat() if c.created_at else ""})
+    output.seek(0)
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=clients.csv"})
+
+
+@app.get("/api/export/invoices")
+def export_invoices_csv(db: Session = Depends(get_db)):
+    invoices = db.query(Invoice).options(joinedload(Invoice.client)).all()
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["id", "number", "client_name", "amount_ht", "tva_rate", "amount_ttc", "status", "issued_date", "due_date", "paid_date"])
+    writer.writeheader()
+    for inv in invoices:
+        writer.writerow({"id": inv.id, "number": inv.number, "client_name": inv.client.name if inv.client else "", "amount_ht": inv.amount_ht, "tva_rate": inv.tva_rate, "amount_ttc": round(inv.amount_ht * (1 + inv.tva_rate / 100), 2), "status": inv.status, "issued_date": inv.issued_date.isoformat() if inv.issued_date else "", "due_date": inv.due_date.isoformat() if inv.due_date else "", "paid_date": inv.paid_date.isoformat() if inv.paid_date else ""})
+    output.seek(0)
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=invoices.csv"})
+
+
+@app.get("/api/export/projects")
+def export_projects_csv(db: Session = Depends(get_db)):
+    projects = db.query(Project).options(joinedload(Project.client)).all()
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["id", "code", "name", "client_name", "type", "status", "budget", "start_date", "end_date"])
+    writer.writeheader()
+    for p in projects:
+        writer.writerow({"id": p.id, "code": p.code, "name": p.name, "client_name": p.client.name if p.client else "", "type": p.type, "status": p.status, "budget": p.budget or "", "start_date": p.start_date.isoformat() if p.start_date else "", "end_date": p.end_date.isoformat() if p.end_date else ""})
+    output.seek(0)
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=projects.csv"})
+
+
+# ═══════════════════════════════════════════════════════════════
+# IMPORT CSV
+# ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/import/clients", status_code=201)
+async def import_clients_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    content = await file.read()
+    text = content.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+    created = []
+    errors = []
+    for i, row in enumerate(reader):
+        name = row.get("name", "").strip()
+        if not name:
+            errors.append(f"Ligne {i+2}: nom manquant")
+            continue
+        try:
+            c = Client(
+                name=name,
+                slug=slugify(name) + "-" + uuid.uuid4().hex[:6],
+                type=row.get("type", "pme"),
+                sector=row.get("sector", ""),
+                contact_name=row.get("contact_name", ""),
+                contact_email=row.get("contact_email", ""),
+                contact_phone=row.get("contact_phone", ""),
+                status=row.get("status", "prospect"),
+                created_at=_now(),
+                updated_at=_now(),
+            )
+            db.add(c)
+            db.commit()
+            db.refresh(c)
+            created.append(c.id)
+        except Exception as e:
+            db.rollback()
+            errors.append(f"Ligne {i+2}: {str(e)}")
+    return {"created": len(created), "errors": errors}
+
+
+# ═══════════════════════════════════════════════════════════════
+# RECHERCHE GLOBALE
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/search")
+def global_search(q: str = Query(..., min_length=2), db: Session = Depends(get_db)):
+    like = f"%{q}%"
+    clients = db.query(Client).filter(
+        (Client.name.ilike(like)) | (Client.contact_email.ilike(like)) | (Client.sector.ilike(like))
+    ).limit(5).all()
+    projects = db.query(Project).options(joinedload(Project.client)).filter(
+        (Project.name.ilike(like)) | (Project.code.ilike(like))
+    ).limit(5).all()
+    quotes = db.query(Quote).options(joinedload(Quote.client)).filter(
+        (Quote.title.ilike(like)) | (Quote.number.ilike(like))
+    ).limit(5).all()
+    tasks = db.query(Task).filter(Task.title.ilike(like)).limit(5).all()
+    return {
+        "clients": [{"id": c.id, "name": c.name, "sector": c.sector, "status": c.status} for c in clients],
+        "projects": [{"id": p.id, "code": p.code, "name": p.name, "client_name": p.client.name if p.client else ""} for p in projects],
+        "quotes": [{"id": qt.id, "number": qt.number, "title": qt.title, "client_name": qt.client.name if qt.client else "", "status": qt.status} for qt in quotes],
+        "tasks": [{"id": t.id, "title": t.title, "status": t.status, "priority": t.priority} for t in tasks],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# CASHFLOW / REPORTING AVANCÉ
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/reporting/cashflow")
+def get_cashflow(db: Session = Depends(get_db)):
+    from dateutil.relativedelta import relativedelta
+    now = datetime.now(timezone.utc)
+    months = []
+    for i in range(11, -1, -1):
+        month_start = (now - relativedelta(months=i)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        month_end = month_start + relativedelta(months=1)
+        paid = db.query(func.sum(Invoice.amount_ht)).filter(
+            Invoice.status == "payee",
+            Invoice.paid_date >= month_start,
+            Invoice.paid_date < month_end,
+        ).scalar() or 0
+        pending = db.query(func.sum(Invoice.amount_ht)).filter(
+            Invoice.status == "envoyee",
+            Invoice.due_date >= month_start,
+            Invoice.due_date < month_end,
+        ).scalar() or 0
+        months.append({
+            "month": month_start.strftime("%Y-%m"),
+            "label": month_start.strftime("%b %Y"),
+            "encaisse": round(paid, 2),
+            "prevu": round(pending, 2),
+        })
+    # Margin by project type
+    margin_by_category = []
+    for ptype in ["diagnostic", "integration", "formation", "mco", "pack_pme"]:
+        projects = db.query(Project).filter(Project.type == ptype).all()
+        pids = [p.id for p in projects]
+        ca = db.query(func.sum(Invoice.amount_ht)).filter(Invoice.project_id.in_(pids), Invoice.status == "payee").scalar() or 0
+        margin_by_category.append({"type": ptype, "ca": round(ca, 2)})
+    # Rolling 12m CA
+    year_start = now - relativedelta(months=12)
+    rolling_12m = db.query(func.sum(Invoice.amount_ht)).filter(
+        Invoice.status == "payee",
+        Invoice.paid_date >= year_start,
+    ).scalar() or 0
+    return {
+        "monthly_forecast": months,
+        "margin_by_category": margin_by_category,
+        "rolling_12m_ca": round(rolling_12m, 2),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# CALENDRIER ICS
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/export/calendar")
+def export_calendar(db: Session = Depends(get_db)):
+    tasks = db.query(Task).filter(Task.due_date.isnot(None), Task.status != "fait").all()
+    activities = db.query(Activity).order_by(Activity.date.desc()).limit(100).all()
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//ACCESSIA Pro//FR",
+        "CALSCALE:GREGORIAN",
+    ]
+    for t in tasks:
+        dt = t.due_date.strftime("%Y%m%dT%H%M%SZ")
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:task-{t.id}@accessia.pro",
+            f"DTSTART:{dt}",
+            f"DTEND:{dt}",
+            f"SUMMARY:{t.title}",
+            f"DESCRIPTION:{t.description or ''}",
+            "END:VEVENT",
+        ]
+    for a in activities:
+        dt = a.date.strftime("%Y%m%dT%H%M%SZ")
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:activity-{a.id}@accessia.pro",
+            f"DTSTART:{dt}",
+            f"DTEND:{dt}",
+            f"SUMMARY:{a.title}",
+            f"DESCRIPTION:{a.description or ''}",
+            "END:VEVENT",
+        ]
+    lines.append("END:VCALENDAR")
+    ics_content = "\r\n".join(lines)
+    return StreamingResponse(iter([ics_content]), media_type="text/calendar", headers={"Content-Disposition": "attachment; filename=accessia.ics"})
+
+
+# ═══════════════════════════════════════════════════════════════
+# WEBHOOKS (CRUD)
+# ═══════════════════════════════════════════════════════════════
+
+class WebhookCreate(BaseModel):
+    url: str = Field(..., max_length=500)
+    events: List[str]
+    secret: Optional[str] = None
+
+
+@app.get("/api/webhooks")
+def list_webhooks(db: Session = Depends(get_db)):
+    hooks = db.query(Webhook).order_by(Webhook.id.desc()).all()
+    return [{"id": h.id, "url": h.url, "events": json.loads(h.events), "active": h.active, "created_at": h.created_at.isoformat() if h.created_at else None} for h in hooks]
+
+
+@app.post("/api/webhooks", status_code=201)
+def create_webhook(body: WebhookCreate, db: Session = Depends(get_db)):
+    h = Webhook(url=body.url, events=json.dumps(body.events), active=True, secret=body.secret, created_at=_now())
+    db.add(h)
+    db.commit()
+    db.refresh(h)
+    return {"id": h.id}
+
+
+@app.patch("/api/webhooks/{wid}")
+def update_webhook(wid: int, body: dict, db: Session = Depends(get_db)):
+    h = db.query(Webhook).filter(Webhook.id == wid).first()
+    if not h:
+        raise HTTPException(404, "Webhook non trouvé")
+    if "active" in body:
+        h.active = body["active"]
+    if "events" in body:
+        h.events = json.dumps(body["events"])
+    db.commit()
+    return {"id": h.id, "active": h.active}
+
+
+@app.delete("/api/webhooks/{wid}", status_code=204)
+def delete_webhook(wid: int, db: Session = Depends(get_db)):
+    h = db.query(Webhook).filter(Webhook.id == wid).first()
+    if not h:
+        raise HTTPException(404, "Webhook non trouvé")
+    db.delete(h)
+    db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════
+# PROJECT TEMPLATES
+# ═══════════════════════════════════════════════════════════════
+
+class ProjectTemplateCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = None
+    phases_json: Optional[str] = None
+
+
+@app.get("/api/project-templates")
+def list_project_templates(db: Session = Depends(get_db)):
+    templates = db.query(ProjectTemplate).order_by(ProjectTemplate.id.desc()).all()
+    return [{"id": t.id, "name": t.name, "description": t.description, "phases_json": t.phases_json, "created_at": t.created_at.isoformat() if t.created_at else None} for t in templates]
+
+
+@app.post("/api/project-templates", status_code=201)
+def create_project_template(body: ProjectTemplateCreate, db: Session = Depends(get_db)):
+    t = ProjectTemplate(name=body.name, description=body.description, phases_json=body.phases_json, created_at=_now())
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return {"id": t.id}
+
+
+@app.delete("/api/project-templates/{tid}", status_code=204)
+def delete_project_template(tid: int, db: Session = Depends(get_db)):
+    t = db.query(ProjectTemplate).filter(ProjectTemplate.id == tid).first()
+    if not t:
+        raise HTTPException(404, "Template non trouvé")
+    db.delete(t)
+    db.commit()

@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ACCESSIA Pro — Plan Fonctionnel</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --blue: #2850ff;
+    --blue-dark: #1a3fd8;
+    --blue-light: #e8eeff;
+    --green: #10b981;
+    --green-light: #d1fae5;
+    --purple: #8b5cf6;
+    --purple-light: #ede9fe;
+    --orange: #f59e0b;
+    --orange-light: #fef3c7;
+    --red: #ef4444;
+    --teal: #0891b2;
+    --teal-light: #cffafe;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: white;
+    color: var(--gray-900);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: linear-gradient(160deg, #0a1628 0%, #0d1f4f 50%, #1a3a8a 100%);
+    color: white;
+    padding: 80px 64px 64px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: end;
+  }
+  .cover-dots {
+    position: absolute;
+    top: 0; right: 0;
+    width: 50%;
+    height: 100%;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .cover-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #7ba3ff;
+    margin-bottom: 16px;
+  }
+  .cover h1 {
+    font-size: 52px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    line-height: 1.05;
+    margin-bottom: 16px;
+  }
+  .cover-desc {
+    font-size: 16px;
+    color: rgba(255,255,255,0.65);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+  .cover-right {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-right-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 16px;
+  }
+  .cover-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .cover-stat:last-child { border-bottom: none; }
+  .cover-stat-label { font-size: 13px; color: rgba(255,255,255,0.6); }
+  .cover-stat-val { font-size: 20px; font-weight: 800; color: white; }
+
+  /* ── NAV ── */
+  .toc {
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 20px 64px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .toc-item {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--gray-200);
+    color: var(--gray-600);
+    background: white;
+  }
+
+  /* ── LAYOUT ── */
+  .page { padding: 0 64px; }
+
+  /* ── MODULE SECTION ── */
+  .module {
+    padding: 48px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .module:last-of-type { border-bottom: none; }
+
+  .module-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .module-num {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    font-weight: 900;
+    color: white;
+    flex-shrink: 0;
+  }
+  .module-title-group {}
+  .module-name { font-size: 22px; font-weight: 800; color: var(--gray-900); }
+  .module-path { font-size: 12px; font-family: monospace; color: var(--gray-400); margin-top: 2px; }
+  .module-badge {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ── FEATURES TABLE ── */
+  .features-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .features-table th {
+    background: var(--gray-50);
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-400);
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .features-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: top;
+  }
+  .features-table tr:last-child td { border-bottom: none; }
+  .ft-feature { font-weight: 600; color: var(--gray-800); }
+  .ft-desc { color: var(--gray-500); line-height: 1.5; }
+  .ft-endpoint {
+    font-family: monospace;
+    font-size: 11px;
+    background: var(--gray-100);
+    color: var(--gray-700);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .method {
+    display: inline-block;
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 4px;
+  }
+  .get { background: #d1fae5; color: #065f46; }
+  .post { background: #dbeafe; color: #1e40af; }
+  .patch { background: #fef3c7; color: #92400e; }
+  .delete { background: #fee2e2; color: #991b1b; }
+
+  /* ── SUB-GRID ── */
+  .sub-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .sub-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .sub-card-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-500);
+    margin-bottom: 10px;
+  }
+  .sub-card ul { list-style: none; }
+  .sub-card li {
+    font-size: 12px;
+    color: var(--gray-600);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sub-card li:last-child { border-bottom: none; }
+  .sub-card li::before { content: '▸'; color: var(--blue); font-size: 10px; }
+
+  /* ── DATA MODEL ── */
+  .model-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .model-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .model-header {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .model-body {
+    padding: 8px 14px 12px;
+  }
+  .model-field {
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--gray-600);
+    padding: 2px 0;
+    display: flex;
+    justify-content: space-between;
+  }
+  .model-field-type { color: var(--gray-400); }
+
+  /* ── USER JOURNEY ── */
+  .journey {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 8px;
+  }
+  .journey-steps {
+    display: flex;
+    gap: 0;
+    position: relative;
+    margin-top: 16px;
+  }
+  .journey-steps::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background: var(--gray-300);
+    z-index: 0;
+  }
+  .j-step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .j-circle {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px;
+    font-size: 18px;
+    background: white;
+    border: 2px solid var(--gray-300);
+  }
+  .j-circle.active {
+    border-color: var(--blue);
+    background: var(--blue-light);
+  }
+  .j-label { font-size: 11px; font-weight: 600; color: var(--gray-600); }
+  .j-sub { font-size: 10px; color: var(--gray-400); margin-top: 2px; }
+
+  /* ── INTEGRATIONS ── */
+  .int-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .int-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 16px 12px;
+    text-align: center;
+    background: white;
+  }
+  .int-icon { font-size: 28px; margin-bottom: 8px; }
+  .int-name { font-size: 12px; font-weight: 700; color: var(--gray-800); }
+  .int-desc { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--gray-900);
+    color: white;
+    padding: 40px 64px;
+    margin-top: 60px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 32px;
+  }
+  .footer-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gray-400);
+    margin-bottom: 12px;
+  }
+  .footer-item { font-size: 13px; color: var(--gray-300); padding: 3px 0; }
+  .footer-item strong { color: white; }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none; }
+    .page-break { page-break-before: always; }
+    .cover { -webkit-print-color-adjust: exact; }
+  }
+  .print-btn {
+    position: fixed;
+    bottom: 32px; right: 32px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(40,80,255,0.35);
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">🖨️ Exporter en PDF</button>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-dots"></div>
+  <div class="cover-grid">
+    <div style="position:relative;z-index:1;">
+      <div class="cover-eyebrow">Plan Fonctionnel · v2.0</div>
+      <h1>ACCESSIA Pro</h1>
+      <p class="cover-desc">
+        Application complète de gestion pour consultants IA et cabinets de conseil.
+        Clients, projets, facturation, CRM et automatisation en un seul outil.
+      </p>
+    </div>
+    <div class="cover-right">
+      <div class="cover-right-title">Fiche technique</div>
+      <div class="cover-stat">
+        <span class="cover-stat-label">Backend</span>
+        <span class="cover-stat-val">FastAPI 0.110</span>
+      </div>
+      <div class="cover-stat">
+        <span class="cover-stat-label">Frontend</span>
+        <span class="cover-stat-val">Next.js 14</span>
+      </div>
+      <div class="cover-stat">
+        <span class="cover-stat-label">Base de données</span>
+        <span class="cover-stat-val">SQLite</span>
+      </div>
+      <div class="cover-stat">
+        <span class="cover-stat-label">Modules</span>
+        <span class="cover-stat-val">15 modules</span>
+      </div>
+      <div class="cover-stat">
+        <span class="cover-stat-label">Endpoints API</span>
+        <span class="cover-stat-val">80+ REST</span>
+      </div>
+      <div class="cover-stat">
+        <span class="cover-stat-label">Version</span>
+        <span class="cover-stat-val">2.0 · Mars 2026</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <span class="toc-item">1. CRM & Clients</span>
+  <span class="toc-item">2. Projets</span>
+  <span class="toc-item">3. Facturation</span>
+  <span class="toc-item">4. Devis & Signature</span>
+  <span class="toc-item">5. Diagnostics</span>
+  <span class="toc-item">6. Reporting</span>
+  <span class="toc-item">7. Automatisation</span>
+  <span class="toc-item">8. NPS & Satisfaction</span>
+  <span class="toc-item">9. Données</span>
+  <span class="toc-item">10. Intégrations</span>
+  <span class="toc-item">11. Interface</span>
+  <span class="toc-item">12. Infrastructure</span>
+</div>
+
+<div class="page">
+
+  <!-- ── MODULE 1 : CRM & CLIENTS ── -->
+  <div class="module">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#2850ff,#6b8fff);">👥</div>
+      <div class="module-title-group">
+        <div class="module-name">1. CRM & Gestion des Clients</div>
+        <div class="module-path">/clients · /crm · /api/clients</div>
+      </div>
+      <div class="module-badge" style="background:#e8eeff;color:#2850ff;">Module Core</div>
+    </div>
+
+    <table class="features-table">
+      <thead>
+        <tr>
+          <th style="width:25%">Fonctionnalité</th>
+          <th>Description</th>
+          <th style="width:30%">Endpoint(s)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ft-feature">Fiche client complète</td>
+          <td class="ft-desc">Nom, type (micro/PME/ETI), secteur, contacts multiples, adresse, SIRET, notes, dossier physique. Statut pipeline (Kanban).</td>
+          <td><span class="method get">GET</span><span class="ft-endpoint">/api/clients/{id}</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Pipeline Kanban</td>
+          <td class="ft-desc">Vue pipeline par étape : Nouveau → Qualifié → Proposition → Négociation → Gagné/Perdu. Drag & drop entre colonnes.</td>
+          <td><span class="method patch">PATCH</span><span class="ft-endpoint">/api/clients/{id}/pipeline</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Timeline 360°</td>
+          <td class="ft-desc">Journal chronologique combinant activités, tâches, factures, projets et diagnostics pour chaque client.</td>
+          <td><span class="method get">GET</span><span class="ft-endpoint">/api/clients/{id}</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Import/Export CSV</td>
+          <td class="ft-desc">Import multi-clients via CSV (validation ligne par ligne). Export clients, factures, projets en CSV. Boutons dans les listes.</td>
+          <td>
+            <span class="method post">POST</span><span class="ft-endpoint">/api/import/clients</span><br/>
+            <span class="method get">GET</span><span class="ft-endpoint">/api/export/clients</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Portail client</td>
+          <td class="ft-desc">Lien sécurisé donnant accès au client pour voir ses projets, factures, devis en attente et diagnostics. Sans compte requis.</td>
+          <td><span class="method get">GET</span><span class="ft-endpoint">/api/portal/{token}</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── MODULE 2 : PROJETS ── -->
+  <div class="module">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa);">📁</div>
+      <div class="module-title-group">
+        <div class="module-name">2. Gestion des Projets</div>
+        <div class="module-path">/projects · /templates · /api/projects</div>
+      </div>
+      <div class="module-badge" style="background:#ede9fe;color:#8b5cf6;">Module Core</div>
+    </div>
+
+    <table class="features-table">
+      <thead>
+        <tr><th style="width:25%">Fonctionnalité</th><th>Description</th><th style="width:30%">Endpoint(s)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ft-feature">Suivi phases</td>
+          <td class="ft-desc">6 phases numérotées, statuts (en cours / terminé / suspendu / annulé), types (diagnostic, intégration, formation, MCO, pack PME). Budget et dates.</td>
+          <td><span class="method put">PUT</span><span class="ft-endpoint">/api/projects/{id}</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Rapport de mission PDF</td>
+          <td class="ft-desc">Génération PDF automatique avec KPIs (heures, CA, tâches réalisées), liste des livrables et factures émises. Bouton dans la fiche projet.</td>
+          <td><span class="method get">GET</span><span class="ft-endpoint">/api/projects/{id}/report-pdf</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Templates de projet</td>
+          <td class="ft-desc">Créez des modèles de projets réutilisables avec phases et tâches prédéfinies. Page dédiée /templates avec CRUD complet.</td>
+          <td>
+            <span class="method get">GET</span><span class="ft-endpoint">/api/project-templates</span><br/>
+            <span class="method post">POST</span><span class="ft-endpoint">/api/project-templates</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="ft-feature">NPS automatique</td>
+          <td class="ft-desc">À la clôture d'un projet, une enquête NPS est créée automatiquement. Lien partageable /nps/{token} envoyable au client.</td>
+          <td><span class="method put">PUT</span><span class="ft-endpoint">/api/projects/{id}</span> (auto)</td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Conformité RGPD</td>
+          <td class="ft-desc">Flag gdpr_done par projet, tableau de bord RGPD global avec taux de conformité, registre des traitements par client.</td>
+          <td><span class="method get">GET</span><span class="ft-endpoint">/api/rgpd-dashboard</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── MODULE 3 : FACTURATION ── -->
+  <div class="module page-break">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#10b981,#34d399);">💰</div>
+      <div class="module-title-group">
+        <div class="module-name">3. Facturation & Finances</div>
+        <div class="module-path">/finances · /api/invoices · /api/recurring-invoices</div>
+      </div>
+      <div class="module-badge" style="background:#d1fae5;color:#065f46;">Module Core</div>
+    </div>
+
+    <table class="features-table">
+      <thead>
+        <tr><th style="width:25%">Fonctionnalité</th><th>Description</th><th style="width:30%">Endpoint(s)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ft-feature">Factures</td>
+          <td class="ft-desc">Création, envoi, suivi paiement. Statuts : brouillon → envoyée → payée → annulée. Numérotation auto FAC-YYYY-NNNN. Export PDF.</td>
+          <td>
+            <span class="method post">POST</span><span class="ft-endpoint">/api/invoices</span><br/>
+            <span class="method patch">PATCH</span><span class="ft-endpoint">/api/invoices/{id}/status</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Facturation récurrente</td>
+          <td class="ft-desc">Abonnements mensuels, trimestriels ou annuels. Le scheduler APScheduler génère les factures automatiquement à l'échéance et avance la date.</td>
+          <td>
+            <span class="method get">GET</span><span class="ft-endpoint">/api/recurring-invoices</span><br/>
+            <span class="method post">POST</span><span class="ft-endpoint">/api/recurring-invoices</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Cashflow 12 mois</td>
+          <td class="ft-desc">Tableau encaissé vs prévu mois par mois sur 12 mois glissants. CA par catégorie de prestation. KPI rolling 12M. Affiché dans Reporting.</td>
+          <td><span class="method get">GET</span><span class="ft-endpoint">/api/reporting/cashflow</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Suivi du temps</td>
+          <td class="ft-desc">Saisie des heures par projet/client. Calcul automatique du budget consommé en %, heures totales, coût estimé. Vue synthétique par projet.</td>
+          <td>
+            <span class="method get">GET</span><span class="ft-endpoint">/api/time-entries</span><br/>
+            <span class="method get">GET</span><span class="ft-endpoint">/api/time-entries/summary</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── MODULE 4 : DEVIS ── -->
+  <div class="module">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);">📄</div>
+      <div class="module-title-group">
+        <div class="module-name">4. Devis & Signature Électronique</div>
+        <div class="module-path">/devis · /sign/[token] · /api/quotes</div>
+      </div>
+      <div class="module-badge" style="background:#fef3c7;color:#92400e;">Module Avancé</div>
+    </div>
+
+    <div class="journey">
+      <strong style="font-size:13px;">🔄 Parcours devis → signature → facturation</strong>
+      <div class="journey-steps">
+        <div class="j-step">
+          <div class="j-circle active">✏️</div>
+          <div class="j-label">Création</div>
+          <div class="j-sub">Brouillon + items</div>
+        </div>
+        <div class="j-step">
+          <div class="j-circle active">📧</div>
+          <div class="j-label">Envoi</div>
+          <div class="j-sub">Lien /sign généré</div>
+        </div>
+        <div class="j-step">
+          <div class="j-circle active">🔏</div>
+          <div class="j-label">Signature</div>
+          <div class="j-sub">Client signe en ligne</div>
+        </div>
+        <div class="j-step">
+          <div class="j-circle active">✅</div>
+          <div class="j-label">Accepté</div>
+          <div class="j-sub">Webhook déclenché</div>
+        </div>
+        <div class="j-step">
+          <div class="j-circle">💳</div>
+          <div class="j-label">Conversion</div>
+          <div class="j-sub">Facture créée</div>
+        </div>
+      </div>
+    </div>
+
+    <table class="features-table" style="margin-top:16px;">
+      <thead>
+        <tr><th style="width:25%">Fonctionnalité</th><th>Description</th><th style="width:30%">Endpoint(s)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ft-feature">Signature électronique</td>
+          <td class="ft-desc">Chaque devis génère un sign_token unique. Page publique /sign/{token} affiche le récapitulatif avec items. Signature par nom + checkbox CGV. IP + horodatage enregistrés.</td>
+          <td>
+            <span class="method get">GET</span><span class="ft-endpoint">/api/quotes/sign/{token}</span><br/>
+            <span class="method post">POST</span><span class="ft-endpoint">/api/quotes/sign/{token}</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Templates de devis</td>
+          <td class="ft-desc">Sauvegardez un devis comme modèle (is_template=true + template_name). Rechargez depuis la liste /templates pour pré-remplir un nouveau devis identique.</td>
+          <td>
+            <span class="method post">POST</span><span class="ft-endpoint">/api/quotes/{id}/save-template</span><br/>
+            <span class="method get">GET</span><span class="ft-endpoint">/api/quote-templates</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Export PDF devis</td>
+          <td class="ft-desc">Génération PDF professionnel avec en-tête ACCESSIA, items détaillés, CGV, conditions de paiement. WeasyPrint avec fallback HTML.</td>
+          <td><span class="method get">GET</span><span class="ft-endpoint">/api/quotes/{id}/pdf</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── MODULE 5 : DIAGNOSTICS ── -->
+  <div class="module">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#0891b2,#22d3ee);">🔍</div>
+      <div class="module-title-group">
+        <div class="module-name">5. Diagnostics IA & Cybersécurité</div>
+        <div class="module-path">/diagnostics · /share/[token] · /api/diagnostics</div>
+      </div>
+      <div class="module-badge" style="background:#cffafe;color:#0e7490;">Module Différenciant</div>
+    </div>
+
+    <div class="sub-grid">
+      <div class="sub-card">
+        <div class="sub-card-title">Diagnostic IA</div>
+        <ul>
+          <li>Questionnaire maturité IA (10 questions)</li>
+          <li>Score par pilier (données, process, RH, stratégie)</li>
+          <li>Préconisations personnalisées générées</li>
+          <li>Rapport PDF exportable</li>
+          <li>Partage lien sécurisé /share/{token}</li>
+        </ul>
+      </div>
+      <div class="sub-card">
+        <div class="sub-card-title">Diagnostic Cybersécurité</div>
+        <ul>
+          <li>Questionnaire ANSSI-inspired</li>
+          <li>Score par domaine (réseau, accès, données, formation)</li>
+          <li>Niveau de risque calculé (critique/élevé/moyen/faible)</li>
+          <li>Plan d'action priorisé</li>
+          <li>Rapport PDF avec logo ACCESSIA</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODULE 6 : REPORTING ── -->
+  <div class="module page-break">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#dc2626,#f87171);">📊</div>
+      <div class="module-title-group">
+        <div class="module-name">6. Reporting & Analytics</div>
+        <div class="module-path">/reporting · /api/reporting · /api/nps</div>
+      </div>
+      <div class="module-badge" style="background:#fee2e2;color:#991b1b;">Module Décision</div>
+    </div>
+
+    <table class="features-table">
+      <thead>
+        <tr><th style="width:25%">KPI / Rapport</th><th>Contenu</th><th style="width:25%">Source</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ft-feature">Dashboard principal</td>
+          <td class="ft-desc">CA mensuel, nb clients actifs, projets en cours, taux de conversion devis, heures ce mois. Vue synthétique instantanée.</td>
+          <td><span class="ft-endpoint">/api/dashboard</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Cashflow 12 mois</td>
+          <td class="ft-desc">Encaissé réel vs prévu par mois. CA par type de prestation. Rolling 12M. Identification des mois creux.</td>
+          <td><span class="ft-endpoint">/api/reporting/cashflow</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Score NPS moyen</td>
+          <td class="ft-desc">NPS calculé sur toutes les enquêtes répondues. Ratio promoteurs/détracteurs/passifs. KPI card dans Reporting.</td>
+          <td><span class="ft-endpoint">/api/nps/average</span></td>
+        </tr>
+        <tr>
+          <td class="ft-feature">Reporting financier</td>
+          <td class="ft-desc">CA facturé, encaissé, en attente. Évolution mensuelle. Taux de retard de paiement. Top clients par CA.</td>
+          <td><span class="ft-endpoint">/api/reporting</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── MODULE 7 : AUTOMATISATION ── -->
+  <div class="module">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#7c3aed,#a855f7);">⚙️</div>
+      <div class="module-title-group">
+        <div class="module-name">7. Automatisation & Scheduler</div>
+        <div class="module-path">APScheduler · BackgroundTasks · /api/webhooks</div>
+      </div>
+      <div class="module-badge" style="background:#ede9fe;color:#6d28d9;">Module Infra</div>
+    </div>
+
+    <div class="sub-grid">
+      <div class="sub-card">
+        <div class="sub-card-title">⏰ Jobs toutes les 24h</div>
+        <ul>
+          <li>Factures envoyées en retard → tâche relance créée automatiquement</li>
+          <li>Devis expirés (valid_until passé) → status="expire"</li>
+          <li>Récurrents dont next_billing_date ≤ now → facture créée</li>
+          <li>next_billing_date avancée selon fréquence (relativedelta)</li>
+        </ul>
+      </div>
+      <div class="sub-card">
+        <div class="sub-card-title">🔔 Webhooks temps réel</div>
+        <ul>
+          <li>quote.accepted → déclenché à la signature ou changement de statut</li>
+          <li>invoice.paid → déclenché au passage en statut payée</li>
+          <li>Signature HMAC-SHA256 dans X-ACCESSIA-Signature</li>
+          <li>BackgroundTasks FastAPI (non bloquant)</li>
+          <li>Timeout 5s par webhook, erreurs silencieuses</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODULE 8 : DONNÉES ── -->
+  <div class="module">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#0369a1,#38bdf8);">🗄️</div>
+      <div class="module-title-group">
+        <div class="module-name">8. Modèles de données — Schéma DB</div>
+        <div class="module-path">SQLite · SQLAlchemy ORM · backend/models.py</div>
+      </div>
+      <div class="module-badge" style="background:#e0f2fe;color:#0369a1;">Technique</div>
+    </div>
+
+    <div class="model-grid">
+      <div class="model-card">
+        <div class="model-header" style="background:#dbeafe;color:#1e40af;">📦 Client</div>
+        <div class="model-body">
+          <div class="model-field"><span>name, slug, type</span><span class="model-field-type">String</span></div>
+          <div class="model-field"><span>sector, contact_*</span><span class="model-field-type">String</span></div>
+          <div class="model-field"><span>status, pipeline_stage</span><span class="model-field-type">Enum</span></div>
+          <div class="model-field"><span>folder_path</span><span class="model-field-type">String</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-header" style="background:#ede9fe;color:#6d28d9;">📁 Project</div>
+        <div class="model-body">
+          <div class="model-field"><span>code, name, type</span><span class="model-field-type">String</span></div>
+          <div class="model-field"><span>status, phase</span><span class="model-field-type">Enum/Int</span></div>
+          <div class="model-field"><span>budget, contract_signed</span><span class="model-field-type">Float/Bool</span></div>
+          <div class="model-field"><span>gdpr_done</span><span class="model-field-type">Boolean</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-header" style="background:#d1fae5;color:#065f46;">💳 Invoice</div>
+        <div class="model-body">
+          <div class="model-field"><span>number, amount_ht</span><span class="model-field-type">String/Float</span></div>
+          <div class="model-field"><span>tva_rate, status</span><span class="model-field-type">Float/Enum</span></div>
+          <div class="model-field"><span>issued_date, due_date</span><span class="model-field-type">DateTime</span></div>
+          <div class="model-field"><span>paid_date</span><span class="model-field-type">DateTime</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-header" style="background:#fef3c7;color:#92400e;">📄 Quote (+NEW)</div>
+        <div class="model-body">
+          <div class="model-field"><span>sign_token</span><span class="model-field-type">String(64)</span></div>
+          <div class="model-field"><span>signed_at, signed_by</span><span class="model-field-type">DateTime/Str</span></div>
+          <div class="model-field"><span>is_template</span><span class="model-field-type">Boolean</span></div>
+          <div class="model-field"><span>items_json</span><span class="model-field-type">Text/JSON</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-header" style="background:#cffafe;color:#0e7490;">🔁 RecurringInvoice</div>
+        <div class="model-body">
+          <div class="model-field"><span>frequency</span><span class="model-field-type">mensuel/trim/an</span></div>
+          <div class="model-field"><span>next_billing_date</span><span class="model-field-type">DateTime</span></div>
+          <div class="model-field"><span>amount_ht, tva_rate</span><span class="model-field-type">Float</span></div>
+          <div class="model-field"><span>active</span><span class="model-field-type">Boolean</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-header" style="background:#fce7f3;color:#9d174d;">⭐ NpsSurvey</div>
+        <div class="model-body">
+          <div class="model-field"><span>share_token</span><span class="model-field-type">String(64)</span></div>
+          <div class="model-field"><span>score</span><span class="model-field-type">Integer 0-10</span></div>
+          <div class="model-field"><span>comment</span><span class="model-field-type">Text</span></div>
+          <div class="model-field"><span>answered_at</span><span class="model-field-type">DateTime</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODULE 9 : INTÉGRATIONS ── -->
+  <div class="module">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#059669,#34d399);">🔌</div>
+      <div class="module-title-group">
+        <div class="module-name">9. Intégrations & Exports</div>
+        <div class="module-path">/api/export · /api/import · Webhooks · ICS</div>
+      </div>
+      <div class="module-badge" style="background:#d1fae5;color:#065f46;">Interopérabilité</div>
+    </div>
+
+    <div class="int-grid">
+      <div class="int-card">
+        <div class="int-icon">📊</div>
+        <div class="int-name">CSV Export</div>
+        <div class="int-desc">Clients, factures, projets exportables en 1 clic</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">📥</div>
+        <div class="int-name">CSV Import</div>
+        <div class="int-desc">Import clients en masse avec rapport d'erreurs</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">📅</div>
+        <div class="int-name">iCal / ICS</div>
+        <div class="int-desc">Tâches + activités exportées pour Google Cal / Outlook</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">🔔</div>
+        <div class="int-name">Webhooks</div>
+        <div class="int-desc">Notifications temps réel vers Slack, Zapier, n8n…</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">🏢</div>
+        <div class="int-name">Recherche SIRET</div>
+        <div class="int-desc">Lookup entreprises via API gouvernementale</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">📱</div>
+        <div class="int-name">PWA</div>
+        <div class="int-desc">Installation native iOS/Android/Desktop</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">☁️</div>
+        <div class="int-name">Backup auto</div>
+        <div class="int-desc">Sauvegarde DB quotidienne + restore en 1 clic</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">🔄</div>
+        <div class="int-name">Auto-update</div>
+        <div class="int-desc">Mise à jour via git pull depuis l'interface</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODULE 10 : INTERFACE ── -->
+  <div class="module">
+    <div class="module-header">
+      <div class="module-num" style="background:linear-gradient(135deg,#1f2937,#4b5563);">🎨</div>
+      <div class="module-title-group">
+        <div class="module-name">10. Interface & Navigation</div>
+        <div class="module-path">Next.js 14 · Tailwind CSS · Lucide Icons</div>
+      </div>
+      <div class="module-badge" style="background:#f3f4f6;color:#374151;">UX/UI</div>
+    </div>
+
+    <div class="sub-grid">
+      <div class="sub-card">
+        <div class="sub-card-title">📍 15 pages principales</div>
+        <ul>
+          <li>Dashboard — Vue synthétique KPIs</li>
+          <li>Mon Jour — Tâches + activités du jour</li>
+          <li>Clients — Liste + pipeline Kanban</li>
+          <li>Projets — Suivi phases et budget</li>
+          <li>Devis — Création + signature</li>
+          <li>Finances — Factures + récurrents</li>
+          <li>Diagnostics — IA + Cyber</li>
+          <li>Reporting — Cashflow + NPS + KPIs</li>
+          <li>Temps — Time tracking</li>
+          <li>Fichiers — Arborescence dossiers</li>
+          <li>CRM — Pipeline commercial</li>
+          <li>Recherche IA — Prospection</li>
+          <li>Prestations — Catalogue offres</li>
+          <li>Templates — Devis + projets</li>
+          <li>Webhooks — Intégrations</li>
+        </ul>
+      </div>
+      <div class="sub-card">
+        <div class="sub-card-title">✨ Fonctionnalités UX</div>
+        <ul>
+          <li>Cmd+K — Recherche globale universelle</li>
+          <li>Mode démo — Données fictives sans risque</li>
+          <li>Bannière hors-ligne — Détection réseau</li>
+          <li>Cache localStorage — TTL 5 min</li>
+          <li>PWA — Installation mobile/desktop</li>
+          <li>Pages publiques — /sign, /nps sans auth</li>
+          <li>Theme color — #2850ff (bleu ACCESSIA)</li>
+          <li>Hot reload — Développement rapide</li>
+          <li>Sidebar responsive — Navigation rapide</li>
+          <li>Toast notifications — Retours utilisateur</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- FOOTER -->
+<div class="footer">
+  <div>
+    <div class="footer-section-title">Application</div>
+    <div class="footer-item"><strong>ACCESSIA Pro v2.0</strong></div>
+    <div class="footer-item">FastAPI + Next.js 14 + SQLite</div>
+    <div class="footer-item">15 modules fonctionnels</div>
+    <div class="footer-item">80+ endpoints REST</div>
+  </div>
+  <div>
+    <div class="footer-section-title">Déploiement</div>
+    <div class="footer-item">Windows / Linux / macOS</div>
+    <div class="footer-item">Docker (docker-compose.yml)</div>
+    <div class="footer-item">Backend : port 8000</div>
+    <div class="footer-item">Frontend : port 3001</div>
+  </div>
+  <div>
+    <div class="footer-section-title">Contact</div>
+    <div class="footer-item">contact@accessia.pro</div>
+    <div class="footer-item">www.accessia.pro</div>
+    <div class="footer-item">Mars 2026</div>
+  </div>
+</div>
+
+</body>
+</html>

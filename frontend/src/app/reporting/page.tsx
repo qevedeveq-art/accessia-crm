@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getReporting, getInvoices, ReportingData, Invoice } from '@/lib/api'
+import { getReporting, getInvoices, getCashflow, getNpsAverage, ReportingData, Invoice } from '@/lib/api'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
@@ -38,11 +38,15 @@ function exportInvoicesToCSV(invoices: Invoice[]) {
 export default function ReportingPage() {
   const [data, setData] = useState<ReportingData | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [cashflow, setCashflow] = useState<any>(null)
+  const [npsAvg, setNpsAvg] = useState<any>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     getReporting().then(setData).catch(e => setError(e.message))
     getInvoices().then(setInvoices).catch(() => {})
+    getCashflow().then(setCashflow).catch(() => {})
+    getNpsAverage().then(setNpsAvg).catch(() => {})
   }, [])
 
   const fmt = (n: number) =>
@@ -168,6 +172,42 @@ export default function ReportingPage() {
               })}
             </div>
           </div>
+
+          {/* NPS Score */}
+          {npsAvg && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <p className="text-sm text-gray-500 mb-1">Score NPS</p>
+              <p className="text-3xl font-bold text-blue-600">{npsAvg.nps_score ?? '—'}</p>
+              <p className="text-xs text-gray-400 mt-1">{npsAvg.count} réponse(s)</p>
+            </div>
+          )}
+
+          {/* Cashflow 12 mois */}
+          {cashflow?.monthly_forecast && (
+            <div className="mt-2">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Cashflow 12 mois</h2>
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-gray-500 font-medium">Mois</th>
+                      <th className="text-right px-4 py-3 text-gray-500 font-medium">Encaissé</th>
+                      <th className="text-right px-4 py-3 text-gray-500 font-medium">Prévu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cashflow.monthly_forecast.map((m: any) => (
+                      <tr key={m.month} className="border-t border-gray-100">
+                        <td className="px-4 py-3 text-gray-700">{m.label}</td>
+                        <td className="px-4 py-3 text-right text-green-600 font-medium">{m.encaisse.toLocaleString('fr-FR')} €</td>
+                        <td className="px-4 py-3 text-right text-blue-500">{m.prevu.toLocaleString('fr-FR')} €</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

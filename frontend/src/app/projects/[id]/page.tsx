@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { getProject, updateProject, getTimeEntries, createTimeEntry, deleteTimeEntry, Project, TimeEntry, TimeEntryCreate } from '@/lib/api'
 import Link from 'next/link'
-import { ArrowLeft, Edit2, Check, X, ExternalLink, Clock, Trash2, Plus } from 'lucide-react'
+import { ArrowLeft, Edit2, Check, X, ExternalLink, Clock, Trash2, Plus, FileText } from 'lucide-react'
 import DiagnosticRecsPanel from '@/components/DiagnosticRecsPanel'
 
 const PHASE_LABELS = [
@@ -102,6 +102,14 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/projects/${project.id}/report-pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
+          >
+            <FileText size={16} /> Rapport de mission
+          </a>
           {editing ? (
             <>
               <button onClick={() => { setEditing(false); setForm(project) }}

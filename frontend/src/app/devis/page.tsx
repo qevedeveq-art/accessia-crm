@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   getQuotes, createQuote, updateQuoteStatus, deleteQuote, convertQuoteToInvoice,
-  getClients, getPrestations, getQuotePdfUrl,
+  getClients, getPrestations, getQuotePdfUrl, saveQuoteAsTemplate,
   Quote, QuoteItem, Client, Prestation,
 } from '@/lib/api'
 import {
@@ -512,6 +512,31 @@ function QuoteRow({ quote, onStatusChange, onDelete, onConvert, onPdf }: {
             className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50"
           >
             <Trash2 size={14} />
+          </button>
+          {(quote as any).sign_token && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/sign/${(quote as any).sign_token}`)
+                alert('Lien copié !')
+              }}
+              className="text-xs text-blue-600 hover:underline px-1"
+              title="Copier lien de signature"
+            >
+              🔗 Signer
+            </button>
+          )}
+          <button
+            onClick={async () => {
+              const name = prompt('Nom du modèle :')
+              if (name) {
+                await saveQuoteAsTemplate(quote.id, name)
+                alert('Modèle sauvegardé !')
+              }
+            }}
+            className="text-xs text-gray-500 hover:text-gray-700 px-1"
+            title="Sauvegarder comme modèle"
+          >
+            📌 Modèle
           </button>
           {quote.items && quote.items.length > 0 && (
             <button onClick={() => setExpanded(e => !e)} className="p-2 text-gray-400 hover:text-gray-600">

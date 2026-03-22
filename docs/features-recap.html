@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ACCESSIA Pro — Récapitulatif des fonctionnalités</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --blue: #2850ff;
+    --blue-light: #e8eeff;
+    --blue-mid: #6b8fff;
+    --green: #10b981;
+    --green-light: #d1fae5;
+    --purple: #8b5cf6;
+    --purple-light: #ede9fe;
+    --orange: #f59e0b;
+    --orange-light: #fef3c7;
+    --red: #ef4444;
+    --red-light: #fee2e2;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-400: #9ca3af;
+    --gray-600: #4b5563;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #fff;
+    color: var(--gray-900);
+    line-height: 1.5;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: linear-gradient(135deg, #0a1628 0%, #1a2f6e 40%, #2850ff 100%);
+    color: white;
+    padding: 80px 60px 60px;
+    min-height: 260px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: avoid;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: 40%;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.03);
+  }
+  .cover-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    color: rgba(255,255,255,0.9);
+  }
+  .cover h1 {
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .cover h1 span { color: #7ba3ff; }
+  .cover-sub {
+    font-size: 18px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 300;
+    margin-bottom: 32px;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 32px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+  }
+  .cover-meta strong { color: white; }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .stat-cell {
+    padding: 20px 24px;
+    border-right: 1px solid var(--gray-200);
+    text-align: center;
+  }
+  .stat-cell:last-child { border-right: none; }
+  .stat-num {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--blue);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+  }
+
+  /* ── CONTENT ── */
+  .content { padding: 0 60px; }
+
+  /* ── SECTION ── */
+  .section {
+    padding: 40px 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .section:last-of-type { border-bottom: none; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .section-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .section-title { font-size: 20px; font-weight: 700; color: var(--gray-900); }
+  .section-subtitle { font-size: 13px; color: var(--gray-400); margin-top: 2px; }
+
+  /* ── FEATURE GRID ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .feature-grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+  .feature-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 18px 20px;
+    background: white;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .feature-card-accent { border-top: 3px solid; }
+  .fc-blue { border-top-color: var(--blue); }
+  .fc-green { border-top-color: var(--green); }
+  .fc-purple { border-top-color: var(--purple); }
+  .fc-orange { border-top-color: var(--orange); }
+  .fc-red { border-top-color: var(--red); }
+
+  .feature-num {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--gray-100);
+    color: var(--gray-400);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .feature-emoji { font-size: 24px; margin-bottom: 10px; display: block; }
+  .feature-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 6px;
+  }
+  .feature-desc {
+    font-size: 12px;
+    color: var(--gray-600);
+    line-height: 1.55;
+  }
+  .feature-tag {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .tag-new { background: var(--blue-light); color: var(--blue); }
+  .tag-enhanced { background: var(--green-light); color: var(--green); }
+
+  /* ── INFOGRAPHIC FLOW ── */
+  .flow-section {
+    padding: 40px 0;
+    page-break-before: always;
+  }
+  .flow-title {
+    font-size: 24px;
+    font-weight: 800;
+    text-align: center;
+    color: var(--gray-900);
+    margin-bottom: 8px;
+  }
+  .flow-subtitle {
+    text-align: center;
+    color: var(--gray-400);
+    font-size: 14px;
+    margin-bottom: 40px;
+  }
+
+  .flow-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    position: relative;
+  }
+  .flow-grid::after {
+    content: '';
+    position: absolute;
+    top: 50px;
+    left: 12.5%;
+    right: 12.5%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--blue), var(--purple), var(--green));
+    z-index: 0;
+  }
+
+  .flow-step {
+    text-align: center;
+    padding: 0 12px;
+    position: relative;
+    z-index: 1;
+  }
+  .flow-circle {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 28px;
+    border: 3px solid white;
+    box-shadow: 0 0 0 3px var(--gray-200);
+    background: white;
+  }
+  .fc1 { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+  .fc2 { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+  .fc3 { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
+  .fc4 { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+
+  .flow-step-title { font-size: 14px; font-weight: 700; color: var(--gray-800); margin-bottom: 6px; }
+  .flow-step-items { font-size: 11px; color: var(--gray-400); line-height: 1.7; }
+
+  /* ── ARCHITECTURE DIAGRAM ── */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 0;
+    align-items: start;
+    margin: 24px 0;
+  }
+  .arch-col {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .arch-col-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+    color: var(--gray-600);
+    text-align: center;
+  }
+  .arch-item {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gray-700);
+    text-align: center;
+  }
+  .arch-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px 0;
+    font-size: 24px;
+    color: var(--gray-400);
+  }
+  .arch-arrow-label {
+    font-size: 10px;
+    color: var(--gray-400);
+    text-align: center;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── WAVE TABLE ── */
+  .wave-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .wave-table th {
+    background: var(--gray-50);
+    padding: 10px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-400);
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .wave-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: top;
+  }
+  .wave-table tr:last-child td { border-bottom: none; }
+  .wave-table td:first-child { font-weight: 600; color: var(--gray-800); white-space: nowrap; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill-blue { background: var(--blue-light); color: var(--blue); }
+  .pill-green { background: var(--green-light); color: var(--green); }
+  .pill-purple { background: var(--purple-light); color: var(--purple); }
+
+  /* ── FOOTER ── */
+  .doc-footer {
+    background: var(--gray-900);
+    color: white;
+    padding: 32px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 40px;
+  }
+  .doc-footer-brand { font-size: 18px; font-weight: 800; }
+  .doc-footer-sub { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+  .doc-footer-date { font-size: 12px; color: var(--gray-400); text-align: right; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none; }
+    .cover { -webkit-print-color-adjust: exact; }
+    .page-break { page-break-before: always; }
+  }
+  .print-btn {
+    position: fixed;
+    bottom: 32px; right: 32px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(40,80,255,0.35);
+    z-index: 100;
+  }
+  .print-btn:hover { background: #1a3fd8; }
+</style>
+</head>
+<body>
+
+<!-- PRINT BUTTON -->
+<button class="print-btn no-print" onclick="window.print()">🖨️ Exporter en PDF</button>
+
+<!-- ── COVER ── -->
+<div class="cover">
+  <div class="cover-badge">📘 Documentation · Version 2.0</div>
+  <h1>ACCESSIA <span>Pro</span></h1>
+  <p class="cover-sub">Récapitulatif des 17 nouvelles fonctionnalités — Release 2.0</p>
+  <div class="cover-meta">
+    <div><strong>Date</strong> · Mars 2026</div>
+    <div><strong>Stack</strong> · FastAPI · Next.js 14 · SQLite</div>
+    <div><strong>Auteur</strong> · ACCESSIA Pro</div>
+  </div>
+</div>
+
+<!-- ── STATS BAR ── -->
+<div class="stats-bar">
+  <div class="stat-cell">
+    <div class="stat-num">17</div>
+    <div class="stat-label">Fonctionnalités</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-num">28</div>
+    <div class="stat-label">Nouveaux endpoints</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-num">5</div>
+    <div class="stat-label">Nouvelles pages</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-num">4</div>
+    <div class="stat-label">Nouveaux modèles DB</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-num">6</div>
+    <div class="stat-label">Vagues d'implémentation</div>
+  </div>
+</div>
+
+<!-- ── CONTENT ── -->
+<div class="content">
+
+  <!-- SECTION 1 : AUTOMATION -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#dbeafe;">⚙️</div>
+      <div>
+        <div class="section-title">Automatisation & Facturation</div>
+        <div class="section-subtitle">Réduire les tâches manuelles répétitives</div>
+      </div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card feature-card-accent fc-blue">
+        <div class="feature-num">01</div>
+        <span class="feature-emoji">🔁</span>
+        <div class="feature-name">Facturation récurrente</div>
+        <div class="feature-desc">Créez des abonnements mensuels, trimestriels ou annuels. Le scheduler génère automatiquement les factures à chaque échéance et avance la date de facturation.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-orange">
+        <div class="feature-num">02</div>
+        <span class="feature-emoji">⏰</span>
+        <div class="feature-name">Relances automatiques</div>
+        <div class="feature-desc">APScheduler vérifie chaque 24h les factures en retard et les devis expirés. Il crée automatiquement des tâches de relance et passe les devis en statut "expiré".</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-purple">
+        <div class="feature-num">03</div>
+        <span class="feature-emoji">📊</span>
+        <div class="feature-name">Cashflow 12 mois</div>
+        <div class="feature-desc">Dashboard financier complet : encaissé vs prévu mois par mois, CA par catégorie de prestation, rolling 12 mois. Visualisé dans l'onglet Reporting.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2 : SIGNATURE & DOCS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#d1fae5;">✍️</div>
+      <div>
+        <div class="section-title">Signature Électronique & Documents</div>
+        <div class="section-subtitle">Accélérer la validation commerciale</div>
+      </div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card feature-card-accent fc-green">
+        <div class="feature-num">04</div>
+        <span class="feature-emoji">🔏</span>
+        <div class="feature-name">Signature électronique de devis</div>
+        <div class="feature-desc">Chaque devis génère un lien unique /sign/{'{token}'}. Le client voit le récapitulatif, signe avec son nom + checkbox CGV. Horodatage + IP enregistrés. Webhook déclenché.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-blue">
+        <div class="feature-num">05</div>
+        <span class="feature-emoji">📑</span>
+        <div class="feature-name">Templates de devis</div>
+        <div class="feature-desc">Sauvegardez n'importe quel devis comme modèle réutilisable. Chargez un template depuis la page Devis pour pré-remplir le formulaire. Gérez vos modèles depuis /templates.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-purple">
+        <div class="feature-num">06</div>
+        <span class="feature-emoji">📋</span>
+        <div class="feature-name">Rapport de mission PDF</div>
+        <div class="feature-desc">Génère un rapport de mission complet (tâches réalisées, factures, heures) pour chaque projet. Exportable en PDF via WeasyPrint, fallback HTML sinon.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3 : EXPÉRIENCE CLIENT -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#ede9fe;">⭐</div>
+      <div>
+        <div class="section-title">Expérience Client & NPS</div>
+        <div class="section-subtitle">Mesurer et améliorer la satisfaction</div>
+      </div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card feature-card-accent fc-purple">
+        <div class="feature-num">07</div>
+        <span class="feature-emoji">⭐</span>
+        <div class="feature-name">Enquête NPS automatique</div>
+        <div class="feature-desc">Quand un projet passe à "terminé", une enquête NPS est créée automatiquement. Lien public /nps/{'{token}'} envoyable au client. Score 0-10 + commentaire. Calcul promoteurs/détracteurs.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-blue">
+        <div class="feature-num">08</div>
+        <span class="feature-emoji">🌐</span>
+        <div class="feature-name">Templates de projets</div>
+        <div class="feature-desc">Créez des templates de projets avec phases et tâches prédéfinies. Réutilisez-les pour démarrer rapidement des projets similaires. Gestion CRUD depuis /templates.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-green">
+        <div class="feature-num">09</div>
+        <span class="feature-emoji">🔔</span>
+        <div class="feature-name">Webhooks temps réel</div>
+        <div class="feature-desc">Configurez des webhooks (URL + événements + secret HMAC) pour notifier vos outils externes. Événements : quote.accepted, invoice.paid. Signature HMAC-SHA256 pour la sécurité.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4 : DONNÉES & IMPORT/EXPORT -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#fef3c7;">📤</div>
+      <div>
+        <div class="section-title">Import / Export & Données</div>
+        <div class="section-subtitle">Portabilité et interopérabilité des données</div>
+      </div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card feature-card-accent fc-orange">
+        <div class="feature-num">10</div>
+        <span class="feature-emoji">📥</span>
+        <div class="feature-name">Export CSV</div>
+        <div class="feature-desc">Exportez clients, factures et projets en CSV d'un clic. Boutons disponibles dans chaque section. Téléchargement direct via StreamingResponse.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-green">
+        <div class="feature-num">11</div>
+        <span class="feature-emoji">📤</span>
+        <div class="feature-name">Import CSV clients</div>
+        <div class="feature-desc">Importez des clients depuis un fichier CSV via glisser-déposer ou sélection. Validation ligne par ligne, rapport d'erreurs détaillé. Colonnes : name, type, sector, email, phone, status.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-blue">
+        <div class="feature-num">12</div>
+        <span class="feature-emoji">📅</span>
+        <div class="feature-name">Export calendrier ICS</div>
+        <div class="feature-desc">Exportez toutes les tâches avec échéance et les activités au format iCal (.ics). Compatible Google Calendar, Outlook, Apple Calendar.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5 : UX & INTERFACE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#fee2e2;">🎯</div>
+      <div>
+        <div class="section-title">Interface & Productivité</div>
+        <div class="section-subtitle">Accélérer la navigation et le travail quotidien</div>
+      </div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card feature-card-accent fc-red">
+        <div class="feature-num">13</div>
+        <span class="feature-emoji">⌘</span>
+        <div class="feature-name">Recherche globale Cmd+K</div>
+        <div class="feature-desc">Palette de recherche universelle accessible avec Cmd+K / Ctrl+K. Recherche en temps réel (debounce 300ms) dans clients, projets, devis et tâches. Résultats cliquables avec navigation directe.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-blue">
+        <div class="feature-num">14</div>
+        <span class="feature-emoji">☀️</span>
+        <div class="feature-name">Page "Mon Jour"</div>
+        <div class="feature-desc">Dashboard quotidien personnel : tâches du jour, activités récentes, devis en attente de signature, factures de la semaine. Vue synthétique pour démarrer la journée efficacement.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-purple">
+        <div class="feature-num">15</div>
+        <span class="feature-emoji">📲</span>
+        <div class="feature-name">PWA — Mode hors-ligne</div>
+        <div class="feature-desc">Manifest PWA pour installation sur mobile/desktop. Cache localStorage 5min sur tous les GET. Bannière hors-ligne avec détection automatique. Données disponibles même sans connexion.</div>
+        <span class="feature-tag tag-new">Nouveau</span>
+      </div>
+    </div>
+
+    <div class="feature-grid" style="margin-top:16px;">
+      <div class="feature-card feature-card-accent fc-green">
+        <div class="feature-num">16</div>
+        <span class="feature-emoji">📧</span>
+        <div class="feature-name">Pages publiques sans auth</div>
+        <div class="feature-desc">Les pages /sign/{'{token}'} et /nps/{'{token}'} sont accessibles sans authentification, sans sidebar. Layout propre et responsive pour les clients externes. isPublicPage étendu dans LayoutShell.</div>
+        <span class="feature-tag tag-enhanced">Amélioré</span>
+      </div>
+      <div class="feature-card feature-card-accent fc-orange">
+        <div class="feature-num">17</div>
+        <span class="feature-emoji">🔌</span>
+        <div class="feature-name">Portail client étendu</div>
+        <div class="feature-desc">Le portail client (/portal-v2) inclut désormais les devis envoyés/acceptés avec leur lien de signature, en plus des projets, factures et diagnostics existants.</div>
+        <span class="feature-tag tag-enhanced">Amélioré</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── INFOGRAPHIC FLOW ── -->
+<div class="content">
+  <div class="flow-section page-break">
+    <div class="flow-title">Flux de travail augmenté</div>
+    <div class="flow-subtitle">Comment les 17 fonctionnalités s'articulent dans votre quotidien</div>
+
+    <div class="flow-grid">
+      <div class="flow-step">
+        <div class="flow-circle fc1">🎯</div>
+        <div class="flow-step-title">Prospection</div>
+        <div class="flow-step-items">
+          Recherche globale ⌘K<br>
+          Import CSV clients<br>
+          Templates de projets<br>
+          Mon Jour (vue quotidienne)
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-circle fc2">💼</div>
+        <div class="flow-step-title">Proposition</div>
+        <div class="flow-step-items">
+          Templates de devis<br>
+          Signature électronique<br>
+          Lien public /sign/{'{token}'}<br>
+          Webhook quote.accepted
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-circle fc3">⚙️</div>
+        <div class="flow-step-title">Exécution</div>
+        <div class="flow-step-items">
+          Rapport de mission PDF<br>
+          Facturation récurrente<br>
+          Relances automatiques<br>
+          Export calendrier ICS
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-circle fc4">⭐</div>
+        <div class="flow-step-title">Fidélisation</div>
+        <div class="flow-step-items">
+          NPS automatique<br>
+          Cashflow reporting<br>
+          Export CSV données<br>
+          Portail client étendu
+        </div>
+      </div>
+    </div>
+
+    <!-- ARCHITECTURE -->
+    <div style="margin-top:60px;">
+      <div class="flow-title" style="font-size:20px; margin-bottom:24px;">Architecture technique</div>
+      <div class="arch-grid">
+        <div class="arch-col">
+          <div class="arch-col-title">🖥️ Frontend — Next.js 14</div>
+          <div class="arch-item">5 nouvelles pages (today, sign, nps, templates, webhooks)</div>
+          <div class="arch-item">GlobalSearch (Cmd+K) — debounce 300ms</div>
+          <div class="arch-item">PWA Manifest + viewport themeColor</div>
+          <div class="arch-item">Cache localStorage TTL 5min</div>
+          <div class="arch-item">Bannière hors-ligne (WifiOff)</div>
+          <div class="arch-item">Pages publiques sans sidebar (/sign, /nps)</div>
+          <div class="arch-item">+20 fonctions dans api.ts</div>
+        </div>
+        <div class="arch-arrow">
+          <span>⟷</span>
+          <div class="arch-arrow-label">HTTP/JSON REST</div>
+        </div>
+        <div class="arch-col">
+          <div class="arch-col-title">⚙️ Backend — FastAPI</div>
+          <div class="arch-item">4 nouveaux modèles SQLAlchemy</div>
+          <div class="arch-item">28 nouveaux endpoints REST</div>
+          <div class="arch-item">APScheduler (relances + récurrents 24h)</div>
+          <div class="arch-item">Webhooks HMAC-SHA256 via BackgroundTasks</div>
+          <div class="arch-item">CSV StreamingResponse (import/export)</div>
+          <div class="arch-item">Migrations automatiques SQLite</div>
+          <div class="arch-item">WeasyPrint PDF (devis + rapport de mission)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WAVE TABLE -->
+    <div style="margin-top:48px;">
+      <div class="flow-title" style="font-size:20px; margin-bottom:24px;">Récapitulatif des 6 vagues d'implémentation</div>
+      <table class="wave-table">
+        <thead>
+          <tr>
+            <th>Vague</th>
+            <th>Périmètre</th>
+            <th>Fichiers modifiés / créés</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Vague 1</td>
+            <td>Nouveaux modèles de données</td>
+            <td><code>backend/models.py</code> — +6 champs Quote, +4 classes ORM</td>
+            <td><span class="pill pill-green">✅ Déployé</span></td>
+          </tr>
+          <tr>
+            <td>Vague 2</td>
+            <td>Backend — endpoints + infra</td>
+            <td><code>main.py</code> — 28 endpoints, APScheduler, migrations, webhooks</td>
+            <td><span class="pill pill-green">✅ Déployé</span></td>
+          </tr>
+          <tr>
+            <td>Vague 3</td>
+            <td>Nouvelles pages frontend</td>
+            <td><code>today, sign/[token], nps/[token], templates, webhooks</code></td>
+            <td><span class="pill pill-green">✅ Déployé</span></td>
+          </tr>
+          <tr>
+            <td>Vague 4</td>
+            <td>Mise à jour pages existantes</td>
+            <td><code>finances, devis, clients, projects/[id], reporting</code></td>
+            <td><span class="pill pill-green">✅ Déployé</span></td>
+          </tr>
+          <tr>
+            <td>Vague 5</td>
+            <td>Recherche globale Cmd+K</td>
+            <td><code>GlobalSearch.tsx</code>, <code>LayoutShell.tsx</code>, <code>Sidebar.tsx</code></td>
+            <td><span class="pill pill-green">✅ Déployé</span></td>
+          </tr>
+          <tr>
+            <td>Vague 6</td>
+            <td>PWA + Mode hors-ligne</td>
+            <td><code>manifest.json</code>, <code>layout.tsx</code>, <code>api.ts</code> (cache)</td>
+            <td><span class="pill pill-green">✅ Déployé</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="doc-footer">
+  <div>
+    <div class="doc-footer-brand">ACCESSIA Pro</div>
+    <div class="doc-footer-sub">Conseil & Intégration IA · PME & Entrepreneurs</div>
+  </div>
+  <div class="doc-footer-date">
+    Version 2.0 · Mars 2026<br>
+    contact@accessia.pro
+  </div>
+</div>
+
+</body>
+</html>
