@@ -19,6 +19,7 @@ import {
   SearchCheck,
   Package,
   Receipt,
+  BookOpen,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { isDemoMode, enableDemoMode, disableDemoMode, DEMO_KEY } from '@/lib/api'
@@ -35,6 +36,7 @@ const nav = [
   { href: '/files',       label: 'Fichiers',        icon: Folder },
   { href: '/crm',         label: 'CRM',             icon: FileText },
   { href: '/reporting',   label: 'Reporting',       icon: BarChart2 },
+  { href: '/guide',       label: 'Guide RGPD',      icon: BookOpen },
 ]
 
 export default function Sidebar() {
