@@ -2,514 +2,307 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ACCESSIA Pro — Infographie</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: 'Inter', system-ui, sans-serif;
-    background: #0b1120;
-    color: white;
-    width: 1200px;
-    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+    background: #f0f4ff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 24px;
   }
 
-  /* ─── LAYOUT ─── */
   .page {
-    width: 1200px;
-    min-height: 1697px; /* A4 landscape ~96dpi */
-    background: #0b1120;
-    display: grid;
-    grid-template-rows: auto auto 1fr auto;
-    padding: 40px;
-    gap: 28px;
-    position: relative;
+    width: 794px;
+    min-height: 1123px;
+    background: white;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.12);
   }
 
-  /* Background blobs */
-  .blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(90px);
-    opacity: 0.18;
-    pointer-events: none;
-  }
-  .blob-1 { width: 500px; height: 500px; background: #2850ff; top: -120px; left: -80px; }
-  .blob-2 { width: 400px; height: 400px; background: #8b5cf6; bottom: 100px; right: -60px; }
-  .blob-3 { width: 300px; height: 300px; background: #10b981; top: 50%; left: 50%; transform: translate(-50%,-50%); }
-
-  /* ─── HEADER ─── */
+  /* ── HEADER ── */
   .header {
-    display: grid;
-    grid-template-columns: 1fr auto;
+    background: linear-gradient(135deg, #1a2f6e 0%, #2850ff 100%);
+    padding: 32px 40px 28px;
+    color: white;
+    display: flex;
     align-items: center;
-    gap: 32px;
-    position: relative;
-    z-index: 1;
+    justify-content: space-between;
+    gap: 24px;
   }
   .header-left {}
-  .header-eyebrow {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: #6b8fff;
-    margin-bottom: 8px;
-  }
-  .header-title {
-    font-size: 52px;
+  .logo {
+    font-size: 30px;
     font-weight: 900;
-    letter-spacing: -2px;
+    letter-spacing: -1px;
     line-height: 1;
   }
-  .header-title span { color: #6b8fff; }
-  .header-sub {
-    font-size: 16px;
-    color: rgba(255,255,255,0.5);
-    margin-top: 8px;
-    font-weight: 300;
+  .logo span { color: #a5c0ff; }
+  .tagline {
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    margin-top: 5px;
+    font-weight: 400;
   }
   .header-stats {
     display: flex;
-    gap: 2px;
+    gap: 8px;
   }
   .hstat {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.12);
     border-radius: 12px;
-    padding: 16px 20px;
+    padding: 12px 16px;
     text-align: center;
-    min-width: 90px;
+    min-width: 80px;
   }
   .hstat-num {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 900;
-    color: #6b8fff;
+    color: white;
     line-height: 1;
   }
-  .hstat-label {
-    font-size: 10px;
-    color: rgba(255,255,255,0.4);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-top: 4px;
-  }
-
-  /* ─── CYCLE BAR ─── */
-  .cycle-bar {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    position: relative;
-    z-index: 1;
-  }
-  .cycle-bar::before {
-    content: '';
-    position: absolute;
-    top: 28px;
-    left: calc(12.5% + 6px);
-    right: calc(12.5% + 6px);
-    height: 2px;
-    background: linear-gradient(90deg, #2850ff 0%, #8b5cf6 50%, #10b981 100%);
-    opacity: 0.5;
-    z-index: 0;
-  }
-  .cycle-step {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-    padding: 18px 16px 16px;
-    position: relative;
-    z-index: 1;
-    text-align: center;
-  }
-  .cycle-step::before {
-    content: attr(data-n);
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    font-size: 10px;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-  }
-  .cs-1::before { background: #2850ff; }
-  .cs-2::before { background: #8b5cf6; }
-  .cs-3::before { background: #10b981; }
-  .cs-4::before { background: #f59e0b; }
-  .cycle-icon { font-size: 28px; margin-bottom: 8px; }
-  .cycle-title { font-size: 14px; font-weight: 800; margin-bottom: 8px; }
-  .cycle-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    justify-content: center;
-  }
-  .ci {
-    font-size: 10px;
-    padding: 3px 7px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.07);
+  .hstat-lbl {
+    font-size: 9.5px;
     color: rgba(255,255,255,0.6);
-    border: 1px solid rgba(255,255,255,0.06);
-  }
-
-  /* ─── MAIN GRID ─── */
-  .main-grid {
-    display: grid;
-    grid-template-columns: 220px 1fr 220px;
-    gap: 16px;
-    position: relative;
-    z-index: 1;
-    align-items: start;
-  }
-
-  /* ─── LEFT COLUMN ─── */
-  .left-col { display: flex; flex-direction: column; gap: 12px; }
-  .right-col { display: flex; flex-direction: column; gap: 12px; }
-
-  .side-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 14px;
-  }
-  .side-card-title {
-    font-size: 10px;
-    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .side-card ul { list-style: none; }
-  .side-card li {
-    font-size: 11px;
-    color: rgba(255,255,255,0.55);
-    padding: 4px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .side-card li:last-child { border-bottom: none; }
-  .side-card li .dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  /* ─── CENTER ─── */
-  .center-col {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  /* APP DIAGRAM */
-  .app-diagram {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 24px;
-    position: relative;
-  }
-
-  /* Browser mockup */
-  .browser {
-    background: #111827;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-  .browser-bar {
-    background: #1f2937;
-    padding: 8px 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .browser-dots { display: flex; gap: 5px; }
-  .browser-dot {
-    width: 9px; height: 9px;
-    border-radius: 50%;
-  }
-  .bd-r { background: #ef4444; }
-  .bd-y { background: #f59e0b; }
-  .bd-g { background: #10b981; }
-  .browser-url {
-    flex: 1;
-    background: rgba(255,255,255,0.06);
-    border-radius: 4px;
-    padding: 3px 10px;
-    font-size: 11px;
-    color: rgba(255,255,255,0.4);
-    font-family: monospace;
-  }
-  .browser-body {
-    display: grid;
-    grid-template-columns: 52px 1fr;
-    height: 200px;
-  }
-  /* Mini sidebar */
-  .mini-sidebar {
-    background: #0f172a;
-    padding: 8px 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .ms-item {
-    height: 18px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.06);
-    font-size: 7px;
-    color: rgba(255,255,255,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .ms-item.active { background: rgba(40,80,255,0.3); color: #6b8fff; }
-  /* Mini content */
-  .mini-content {
-    padding: 10px;
-    background: #111827;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: 38px 38px 38px 38px;
-    gap: 6px;
-    overflow: hidden;
-  }
-  .mc-card {
-    border-radius: 5px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.06);
-    padding: 4px 6px;
-  }
-  .mc-num { font-size: 14px; font-weight: 800; color: #6b8fff; }
-  .mc-lbl { font-size: 7px; color: rgba(255,255,255,0.3); }
-  .mc-card.span2 { grid-column: span 2; }
-  .mc-card.span3 { grid-column: span 3; background: rgba(40,80,255,0.08); border-color: rgba(40,80,255,0.2); }
-  .mc-bar {
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.08);
-    margin-top: 4px;
-    overflow: hidden;
-  }
-  .mc-bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    background: linear-gradient(90deg, #2850ff, #6b8fff);
-  }
-  .mc-line {
-    height: 3px;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.06);
+    letter-spacing: 0.05em;
     margin-top: 3px;
   }
-  .mc-line:nth-child(2) { width: 70%; }
-  .mc-line:nth-child(3) { width: 45%; }
 
-  /* API connector */
-  .api-connector {
+  /* ── SECTION TITLE ── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #2850ff;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .section-title {
+    font-size: 19px;
+    font-weight: 800;
+    text-align: center;
+    color: #111827;
+    margin-bottom: 20px;
+  }
+
+  /* ── FLOW ── */
+  .flow-section {
+    padding: 26px 32px 20px;
+    background: #f8faff;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .flow-steps {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 10px 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0;
     position: relative;
   }
-  .api-connector::before {
+  /* connecting line */
+  .flow-steps::before {
     content: '';
     position: absolute;
-    left: 0; right: 0;
-    height: 1px;
-    background: rgba(255,255,255,0.06);
-    top: 50%;
+    top: 26px;
+    left: 46px;
+    right: 46px;
+    height: 2px;
+    background: linear-gradient(90deg, #2850ff, #8b5cf6, #10b981, #f59e0b, #ef4444);
+    z-index: 0;
   }
-  .api-badge {
-    background: rgba(40,80,255,0.15);
-    border: 1px solid rgba(40,80,255,0.3);
-    border-radius: 999px;
-    padding: 5px 14px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #6b8fff;
+  .flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 120px;
     position: relative;
     z-index: 1;
+  }
+  .flow-circle {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
-    gap: 6px;
-  }
-  .api-arrow { color: rgba(255,255,255,0.2); font-size: 12px; position: relative; z-index: 1; }
-
-  /* DB row */
-  .db-row {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
-  }
-  .db-table {
-    background: #0f172a;
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 8px;
-    padding: 8px;
-    text-align: center;
-  }
-  .db-icon { font-size: 16px; margin-bottom: 3px; }
-  .db-name { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.6); }
-  .db-count { font-size: 8px; color: rgba(255,255,255,0.25); }
-
-  /* ─── FEATURE PILLS ROW ─── */
-  .pills-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
     justify-content: center;
+    font-size: 24px;
+    border: 3px solid white;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12);
   }
-  .fpill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-    border: 1px solid;
-  }
-  .fp-blue   { background: rgba(40,80,255,0.12);  border-color: rgba(40,80,255,0.25);  color: #7ba3ff; }
-  .fp-green  { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.25); color: #6ee7b7; }
-  .fp-purple { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.25); color: #c4b5fd; }
-  .fp-orange { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.25); color: #fcd34d; }
-  .fp-red    { background: rgba(239,68,68,0.12);  border-color: rgba(239,68,68,0.25);  color: #fca5a5; }
-  .fp-teal   { background: rgba(8,145,178,0.12);  border-color: rgba(8,145,178,0.25);  color: #67e8f9; }
+  .fc-1 { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+  .fc-2 { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+  .fc-3 { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
+  .fc-4 { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+  .fc-5 { background: linear-gradient(135deg, #fee2e2, #fecaca); }
 
-  /* ─── BOTTOM ROW ─── */
-  .bottom-row {
+  .flow-step-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1f2937;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .flow-step-desc {
+    font-size: 10px;
+    color: #6b7280;
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  /* ── FEATURE GRID ── */
+  .features-section {
+    padding: 22px 32px 18px;
+    flex: 1;
+  }
+  .features-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
-    position: relative;
-    z-index: 1;
   }
-  .bottom-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 12px;
-    padding: 16px;
+  .feature-card {
+    border-radius: 14px;
+    padding: 16px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1.5px solid transparent;
   }
-  .bottom-card-header {
+  .fcard-blue   { background: #eff6ff; border-color: #bfdbfe; }
+  .fcard-purple { background: #f5f3ff; border-color: #ddd6fe; }
+  .fcard-green  { background: #ecfdf5; border-color: #a7f3d0; }
+  .fcard-orange { background: #fffbeb; border-color: #fde68a; }
+  .fcard-red    { background: #fff1f2; border-color: #fecdd3; }
+  .fcard-teal   { background: #ecfeff; border-color: #a5f3fc; }
+
+  .fc-top {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 10px;
   }
-  .bc-icon {
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px;
+  .fc-emoji {
+    font-size: 26px;
+    line-height: 1;
     flex-shrink: 0;
   }
-  .bc-title { font-size: 13px; font-weight: 700; }
-  .bc-sub { font-size: 10px; color: rgba(255,255,255,0.35); }
-
-  .flow-mini {
+  .fc-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1.2;
+  }
+  .fc-desc {
+    font-size: 11px;
+    color: #4b5563;
+    line-height: 1.5;
+  }
+  .fc-tags {
     display: flex;
-    align-items: center;
-    gap: 4px;
     flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
   }
-  .fm-step {
-    background: rgba(255,255,255,0.06);
-    border-radius: 6px;
-    padding: 5px 8px;
-    font-size: 10px;
+  .fc-tag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .tag-blue   { background: #dbeafe; color: #1d4ed8; }
+  .tag-purple { background: #ede9fe; color: #6d28d9; }
+  .tag-green  { background: #d1fae5; color: #065f46; }
+  .tag-orange { background: #fef3c7; color: #92400e; }
+  .tag-red    { background: #fee2e2; color: #991b1b; }
+  .tag-teal   { background: #cffafe; color: #155e75; }
+
+  /* ── BENEFITS ── */
+  .benefits-section {
+    padding: 18px 32px 18px;
+    background: #1a2f6e;
+    display: flex;
+    gap: 12px;
+  }
+  .benefit {
+    flex: 1;
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .benefit-icon {
+    font-size: 26px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .benefit-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 3px;
+  }
+  .benefit-desc {
+    font-size: 10.5px;
     color: rgba(255,255,255,0.6);
+    line-height: 1.5;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: #111827;
+    padding: 12px 32px;
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: space-between;
   }
-  .fm-step.accent { background: rgba(40,80,255,0.15); color: #7ba3ff; }
-  .fm-arrow { color: rgba(255,255,255,0.2); font-size: 10px; }
-
-  .stack-items {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
+  .footer-brand {
+    font-size: 14px;
+    font-weight: 800;
+    color: white;
   }
-  .stack-item {
-    background: rgba(255,255,255,0.05);
-    border-radius: 6px;
-    padding: 7px 10px;
+  .footer-brand span { color: #6b8fff; }
+  .footer-urls {
+    display: flex;
+    gap: 16px;
+  }
+  .footer-url {
     font-size: 10px;
-    color: rgba(255,255,255,0.55);
+    color: rgba(255,255,255,0.4);
     display: flex;
     align-items: center;
     gap: 5px;
   }
-  .stack-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .automation-items { display: flex; flex-direction: column; gap: 6px; }
-  .auto-item {
-    background: rgba(255,255,255,0.04);
-    border-radius: 6px;
-    padding: 7px 10px;
+  .footer-url strong { color: rgba(255,255,255,0.7); }
+  .footer-date {
     font-size: 10px;
-    color: rgba(255,255,255,0.55);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    color: rgba(255,255,255,0.3);
   }
-  .auto-item-icon { font-size: 14px; flex-shrink: 0; }
-  .auto-item-label { flex: 1; }
-  .auto-item-badge {
-    font-size: 9px;
-    padding: 2px 6px;
-    border-radius: 999px;
-    font-weight: 700;
-  }
-  .ab-green { background: rgba(16,185,129,0.15); color: #6ee7b7; }
-  .ab-blue  { background: rgba(40,80,255,0.15);  color: #7ba3ff; }
-  .ab-purple{ background: rgba(139,92,246,0.15); color: #c4b5fd; }
 
-  /* ─── FOOTER ─── */
-  .footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 16px;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    position: relative;
-    z-index: 1;
-  }
-  .footer-brand { font-size: 18px; font-weight: 900; color: white; }
-  .footer-brand span { color: #6b8fff; }
-  .footer-sub { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 2px; }
-  .footer-meta { font-size: 11px; color: rgba(255,255,255,0.25); text-align: right; }
-
+  /* ── PRINT ── */
   @media print {
-    body { background: #0b1120; -webkit-print-color-adjust: exact; print-color-adjust: exact; width: 1200px; }
-    .page { -webkit-print-color-adjust: exact; }
+    body { background: white; padding: 0; display: block; }
+    .page { box-shadow: none; width: 100%; min-height: 0; }
     .no-print { display: none !important; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   }
+
   .print-btn {
     position: fixed;
     bottom: 24px; right: 24px;
@@ -517,375 +310,208 @@
     color: white;
     border: none;
     border-radius: 999px;
-    padding: 10px 20px;
+    padding: 11px 22px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     box-shadow: 0 4px 20px rgba(40,80,255,0.4);
-    z-index: 999;
     font-family: 'Inter', sans-serif;
   }
 </style>
 </head>
 <body>
 
-<button class="print-btn no-print" onclick="window.print()">🖨️ Exporter PDF</button>
+<button class="print-btn no-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
 
 <div class="page">
-  <!-- BG blobs -->
-  <div class="blob blob-1"></div>
-  <div class="blob blob-2"></div>
-  <div class="blob blob-3"></div>
 
-  <!-- ── HEADER ── -->
+  <!-- HEADER -->
   <div class="header">
     <div class="header-left">
-      <div class="header-eyebrow">Conseil & Intégration IA · PME & Entrepreneurs</div>
-      <div class="header-title">ACCESSIA <span>Pro</span></div>
-      <div class="header-sub">La plateforme tout-en-un pour piloter votre activité de conseil</div>
+      <div class="logo">ACCESSIA <span>Pro</span></div>
+      <div class="tagline">L'outil de gestion conçu pour les consultants et cabinets de conseil en IA</div>
     </div>
     <div class="header-stats">
-      <div class="hstat"><div class="hstat-num">15</div><div class="hstat-label">Modules</div></div>
-      <div class="hstat"><div class="hstat-num">80+</div><div class="hstat-label">Endpoints</div></div>
-      <div class="hstat"><div class="hstat-num">12</div><div class="hstat-label">Tables DB</div></div>
-      <div class="hstat"><div class="hstat-num">v2.0</div><div class="hstat-label">Version</div></div>
-    </div>
-  </div>
-
-  <!-- ── CYCLE BAR ── -->
-  <div class="cycle-bar">
-    <div class="cycle-step cs-1" data-n="1">
-      <div class="cycle-icon">🎯</div>
-      <div class="cycle-title">Prospecter</div>
-      <div class="cycle-items">
-        <span class="ci">Recherche SIRET</span>
-        <span class="ci">Import CSV</span>
-        <span class="ci">Pipeline Kanban</span>
-        <span class="ci">Cmd+K Search</span>
-        <span class="ci">Mon Jour</span>
+      <div class="hstat">
+        <div class="hstat-num">1</div>
+        <div class="hstat-lbl">Seul outil</div>
       </div>
-    </div>
-    <div class="cycle-step cs-2" data-n="2">
-      <div class="cycle-icon">💼</div>
-      <div class="cycle-title">Proposer</div>
-      <div class="cycle-items">
-        <span class="ci">Devis itemisés</span>
-        <span class="ci">Templates</span>
-        <span class="ci">Signature e-ink</span>
-        <span class="ci">PDF professionnel</span>
-        <span class="ci">Portail client</span>
+      <div class="hstat">
+        <div class="hstat-num">∞</div>
+        <div class="hstat-lbl">Clients gérés</div>
       </div>
-    </div>
-    <div class="cycle-step cs-3" data-n="3">
-      <div class="cycle-icon">⚙️</div>
-      <div class="cycle-title">Exécuter</div>
-      <div class="cycle-items">
-        <span class="ci">Suivi phases</span>
-        <span class="ci">Time tracking</span>
-        <span class="ci">Diagnostics IA/Cyber</span>
-        <span class="ci">Rapport mission</span>
-        <span class="ci">RGPD dashboard</span>
-      </div>
-    </div>
-    <div class="cycle-step cs-4" data-n="4">
-      <div class="cycle-icon">⭐</div>
-      <div class="cycle-title">Fidéliser</div>
-      <div class="cycle-items">
-        <span class="ci">NPS automatique</span>
-        <span class="ci">Facturation récurrente</span>
-        <span class="ci">Cashflow 12 mois</span>
-        <span class="ci">Webhooks</span>
-        <span class="ci">Export ICS</span>
+      <div class="hstat">
+        <div class="hstat-num">0</div>
+        <div class="hstat-lbl">Tâche oubliée</div>
       </div>
     </div>
   </div>
 
-  <!-- ── MAIN GRID ── -->
-  <div class="main-grid">
+  <!-- FLOW -->
+  <div class="flow-section">
+    <div class="section-label">Comment ça marche ?</div>
+    <div class="section-title">5 étapes, tout est automatisé</div>
+    <div class="flow-steps">
 
-    <!-- LEFT -->
-    <div class="left-col">
-      <div class="side-card">
-        <div class="side-card-title" style="color:#6b8fff;">👤 CRM Clients</div>
-        <ul>
-          <li><span class="dot" style="background:#2850ff"></span>Fiche 360° complète</li>
-          <li><span class="dot" style="background:#2850ff"></span>Contacts multiples</li>
-          <li><span class="dot" style="background:#2850ff"></span>Pipeline 6 étapes</li>
-          <li><span class="dot" style="background:#2850ff"></span>Timeline activités</li>
-          <li><span class="dot" style="background:#2850ff"></span>Import / Export CSV</li>
-          <li><span class="dot" style="background:#2850ff"></span>Portail client lien</li>
-        </ul>
-      </div>
-      <div class="side-card">
-        <div class="side-card-title" style="color:#34d399;">💰 Finances</div>
-        <ul>
-          <li><span class="dot" style="background:#10b981"></span>Factures auto-numérotées</li>
-          <li><span class="dot" style="background:#10b981"></span>Récurrents (abo.)</li>
-          <li><span class="dot" style="background:#10b981"></span>Relances auto J+1</li>
-          <li><span class="dot" style="background:#10b981"></span>Cashflow 12 mois</li>
-          <li><span class="dot" style="background:#10b981"></span>Export CSV factures</li>
-        </ul>
-      </div>
-      <div class="side-card">
-        <div class="side-card-title" style="color:#c4b5fd;">🔍 Diagnostics</div>
-        <ul>
-          <li><span class="dot" style="background:#8b5cf6"></span>Questionnaire Maturité IA</li>
-          <li><span class="dot" style="background:#8b5cf6"></span>Audit Cybersécurité</li>
-          <li><span class="dot" style="background:#8b5cf6"></span>Score par pilier</li>
-          <li><span class="dot" style="background:#8b5cf6"></span>Préconisations auto</li>
-          <li><span class="dot" style="background:#8b5cf6"></span>PDF partageable</li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- CENTER -->
-    <div class="center-col">
-
-      <!-- Browser mockup -->
-      <div class="app-diagram">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.3);margin-bottom:10px;">Interface Next.js 14 — localhost:3001</div>
-        <div class="browser">
-          <div class="browser-bar">
-            <div class="browser-dots">
-              <div class="browser-dot bd-r"></div>
-              <div class="browser-dot bd-y"></div>
-              <div class="browser-dot bd-g"></div>
-            </div>
-            <div class="browser-url">localhost:3001 — ACCESSIA Pro</div>
-          </div>
-          <div class="browser-body">
-            <div class="mini-sidebar">
-              <div class="ms-item active">🏠</div>
-              <div class="ms-item">👥</div>
-              <div class="ms-item">📁</div>
-              <div class="ms-item">📄</div>
-              <div class="ms-item">💰</div>
-              <div class="ms-item">🔍</div>
-              <div class="ms-item">📊</div>
-              <div class="ms-item">⌘K</div>
-            </div>
-            <div class="mini-content">
-              <div class="mc-card">
-                <div class="mc-num">24</div>
-                <div class="mc-lbl">Clients</div>
-              </div>
-              <div class="mc-card">
-                <div class="mc-num">8</div>
-                <div class="mc-lbl">Projets</div>
-              </div>
-              <div class="mc-card">
-                <div class="mc-num">€42k</div>
-                <div class="mc-lbl">CA HT</div>
-              </div>
-              <div class="mc-card span3">
-                <div class="mc-lbl">Cashflow 12 mois</div>
-                <div class="mc-bar"><div class="mc-bar-fill" style="width:72%"></div></div>
-              </div>
-              <div class="mc-card span2">
-                <div class="mc-lbl">Tâches du jour</div>
-                <div class="mc-line"></div>
-                <div class="mc-line"></div>
-              </div>
-              <div class="mc-card">
-                <div class="mc-num">8.4</div>
-                <div class="mc-lbl">NPS</div>
-              </div>
-              <div class="mc-card span3">
-                <div class="mc-lbl">Pipeline commercial</div>
-                <div style="display:flex;gap:3px;margin-top:4px;">
-                  <div style="flex:2;height:5px;border-radius:2px;background:#2850ff;opacity:0.7"></div>
-                  <div style="flex:3;height:5px;border-radius:2px;background:#8b5cf6;opacity:0.7"></div>
-                  <div style="flex:2;height:5px;border-radius:2px;background:#10b981;opacity:0.7"></div>
-                  <div style="flex:1;height:5px;border-radius:2px;background:#f59e0b;opacity:0.7"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- API Connector -->
-        <div class="api-connector">
-          <span class="api-arrow">▲</span>
-          <div class="api-badge">⚡ REST API JSON</div>
-          <span class="api-arrow">▼</span>
-          <div class="api-badge" style="background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:#6ee7b7;">🔒 FastAPI 0.110</div>
-          <span class="api-arrow">▼</span>
-          <div class="api-badge" style="background:rgba(139,92,246,0.1);border-color:rgba(139,92,246,0.3);color:#c4b5fd;">📅 APScheduler</div>
-        </div>
-
-        <!-- DB tables -->
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.3);margin-bottom:8px;">Base SQLite — 12 tables</div>
-        <div class="db-row">
-          <div class="db-table"><div class="db-icon">👥</div><div class="db-name">clients</div><div class="db-count">+contacts</div></div>
-          <div class="db-table"><div class="db-icon">📁</div><div class="db-name">projects</div><div class="db-count">+templates</div></div>
-          <div class="db-table"><div class="db-icon">💳</div><div class="db-name">invoices</div><div class="db-count">+récurrents</div></div>
-          <div class="db-table"><div class="db-icon">📄</div><div class="db-name">quotes</div><div class="db-count">+signature</div></div>
-          <div class="db-table"><div class="db-icon">⭐</div><div class="db-name">nps_surveys</div><div class="db-count">webhooks</div></div>
-        </div>
+      <div class="flow-step">
+        <div class="flow-circle fc-1">🎯</div>
+        <div class="flow-step-name">Vous ajoutez<br>un client</div>
+        <div class="flow-step-desc">Fiche complète, contacts, historique, dossier créé automatiquement</div>
       </div>
 
-      <!-- Feature pills -->
-      <div class="pills-row">
-        <span class="fpill fp-blue">⌘K Recherche globale</span>
-        <span class="fpill fp-green">🔏 Signature électronique</span>
-        <span class="fpill fp-purple">📊 Cashflow 12 mois</span>
-        <span class="fpill fp-orange">🔁 Facturation récurrente</span>
-        <span class="fpill fp-teal">📅 Export ICS</span>
-        <span class="fpill fp-red">📲 PWA hors-ligne</span>
-        <span class="fpill fp-blue">🔔 Webhooks HMAC</span>
-        <span class="fpill fp-green">⭐ NPS automatique</span>
-        <span class="fpill fp-purple">📋 Templates réutilisables</span>
-        <span class="fpill fp-orange">📤 Import/Export CSV</span>
+      <div class="flow-step">
+        <div class="flow-circle fc-2">📄</div>
+        <div class="flow-step-name">Vous créez<br>un devis</div>
+        <div class="flow-step-desc">En quelques clics avec vos modèles, export PDF inclus</div>
       </div>
-    </div>
 
-    <!-- RIGHT -->
-    <div class="right-col">
-      <div class="side-card">
-        <div class="side-card-title" style="color:#fcd34d;">📄 Devis & Signature</div>
-        <ul>
-          <li><span class="dot" style="background:#f59e0b"></span>Devis avec items</li>
-          <li><span class="dot" style="background:#f59e0b"></span>Signature en ligne</li>
-          <li><span class="dot" style="background:#f59e0b"></span>Lien public /sign/</li>
-          <li><span class="dot" style="background:#f59e0b"></span>Templates de devis</li>
-          <li><span class="dot" style="background:#f59e0b"></span>Conversion → facture</li>
-          <li><span class="dot" style="background:#f59e0b"></span>Export PDF</li>
-        </ul>
+      <div class="flow-step">
+        <div class="flow-circle fc-3">✍️</div>
+        <div class="flow-step-name">Le client<br>signe en ligne</div>
+        <div class="flow-step-desc">Lien envoyé par email, signature électronique valide légalement</div>
       </div>
-      <div class="side-card">
-        <div class="side-card-title" style="color:#67e8f9;">📊 Reporting</div>
-        <ul>
-          <li><span class="dot" style="background:#0891b2"></span>KPIs temps réel</li>
-          <li><span class="dot" style="background:#0891b2"></span>NPS score moyen</li>
-          <li><span class="dot" style="background:#0891b2"></span>CA par catégorie</li>
-          <li><span class="dot" style="background:#0891b2"></span>Suivi temps & budget</li>
-          <li><span class="dot" style="background:#0891b2"></span>RGPD conformité</li>
-        </ul>
+
+      <div class="flow-step">
+        <div class="flow-circle fc-4">💳</div>
+        <div class="flow-step-name">La facture<br>part toute seule</div>
+        <div class="flow-step-desc">Générée automatiquement, relances programmées si retard</div>
       </div>
-      <div class="side-card">
-        <div class="side-card-title" style="color:#fca5a5;">📁 Fichiers & Docs</div>
-        <ul>
-          <li><span class="dot" style="background:#ef4444"></span>Arborescence auto</li>
-          <li><span class="dot" style="background:#ef4444"></span>Dossiers par client</li>
-          <li><span class="dot" style="background:#ef4444"></span>Rapport mission PDF</li>
-          <li><span class="dot" style="background:#ef4444"></span>Backup quotidien</li>
-          <li><span class="dot" style="background:#ef4444"></span>Mise à jour auto git</li>
-        </ul>
+
+      <div class="flow-step">
+        <div class="flow-circle fc-5">⭐</div>
+        <div class="flow-step-name">Vous mesurez<br>la satisfaction</div>
+        <div class="flow-step-desc">Enquête NPS envoyée automatiquement à la fin du projet</div>
       </div>
+
     </div>
   </div>
 
-  <!-- ── BOTTOM ROW ── -->
-  <div class="bottom-row">
+  <!-- FEATURES -->
+  <div class="features-section">
+    <div class="section-label">Ce que vous pouvez faire</div>
+    <div class="section-title">Toutes vos fonctionnalités en un coup d'œil</div>
+    <div class="features-grid">
 
-    <!-- Parcours devis → paiement -->
-    <div class="bottom-card">
-      <div class="bottom-card-header">
-        <div class="bc-icon" style="background:rgba(245,158,11,0.15);">💼</div>
-        <div><div class="bc-title">Cycle de vente</div><div class="bc-sub">Du prospect au paiement</div></div>
+      <div class="feature-card fcard-blue">
+        <div class="fc-top">
+          <div class="fc-emoji">👥</div>
+          <div class="fc-name">Gérer vos clients et contacts</div>
+        </div>
+        <div class="fc-desc">Fiche client complète avec historique, notes, documents et pipeline commercial visuel pour suivre où en est chaque prospect.</div>
+        <div class="fc-tags">
+          <span class="fc-tag tag-blue">Pipeline kanban</span>
+          <span class="fc-tag tag-blue">Import CSV</span>
+          <span class="fc-tag tag-blue">Portail client</span>
+        </div>
       </div>
-      <div class="flow-mini">
-        <div class="fm-step">🎯<span>Prospect</span></div>
-        <div class="fm-arrow">→</div>
-        <div class="fm-step">📄<span>Devis</span></div>
-        <div class="fm-arrow">→</div>
-        <div class="fm-step accent">🔏<span>Signature</span></div>
-        <div class="fm-arrow">→</div>
-        <div class="fm-step">💳<span>Facture</span></div>
-        <div class="fm-arrow">→</div>
-        <div class="fm-step">✅<span>Payé</span></div>
-        <div class="fm-arrow">→</div>
-        <div class="fm-step accent">⭐<span>NPS</span></div>
-      </div>
-      <div style="margin-top:10px;font-size:10px;color:rgba(255,255,255,0.3);line-height:1.5;">
-        Chaque étape déclenche automatiquement la suivante :<br>
-        signature → webhook → facture → relance → NPS à clôture
-      </div>
-    </div>
 
-    <!-- Stack technique -->
-    <div class="bottom-card">
-      <div class="bottom-card-header">
-        <div class="bc-icon" style="background:rgba(40,80,255,0.15);">⚙️</div>
-        <div><div class="bc-title">Stack technique</div><div class="bc-sub">Technologies utilisées</div></div>
+      <div class="feature-card fcard-purple">
+        <div class="fc-top">
+          <div class="fc-emoji">📄</div>
+          <div class="fc-name">Créer et signer vos devis</div>
+        </div>
+        <div class="fc-desc">Rédigez des devis professionnels depuis vos modèles, envoyez un lien de signature à votre client, tout est enregistré automatiquement.</div>
+        <div class="fc-tags">
+          <span class="fc-tag tag-purple">Signature e-ink</span>
+          <span class="fc-tag tag-purple">Export PDF</span>
+          <span class="fc-tag tag-purple">Modèles</span>
+        </div>
       </div>
-      <div class="stack-items">
-        <div class="stack-item"><span class="stack-dot" style="background:#2850ff"></span>Next.js 14</div>
-        <div class="stack-item"><span class="stack-dot" style="background:#10b981"></span>FastAPI 0.110</div>
-        <div class="stack-item"><span class="stack-dot" style="background:#8b5cf6"></span>SQLAlchemy ORM</div>
-        <div class="stack-item"><span class="stack-dot" style="background:#f59e0b"></span>SQLite</div>
-        <div class="stack-item"><span class="stack-dot" style="background:#0891b2"></span>Tailwind CSS</div>
-        <div class="stack-item"><span class="stack-dot" style="background:#ec4899"></span>TypeScript</div>
-        <div class="stack-item"><span class="stack-dot" style="background:#6b7280"></span>APScheduler</div>
-        <div class="stack-item"><span class="stack-dot" style="background:#84cc16"></span>Pydantic v2</div>
-      </div>
-      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-        <span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);">Windows · Linux · macOS · Docker</span>
-        <span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);">PWA installable</span>
-      </div>
-    </div>
 
-    <!-- Automatisation -->
-    <div class="bottom-card">
-      <div class="bottom-card-header">
-        <div class="bc-icon" style="background:rgba(139,92,246,0.15);">🤖</div>
-        <div><div class="bc-title">Automatisation</div><div class="bc-sub">Ce que fait l'app sans vous</div></div>
-      </div>
-      <div class="automation-items">
-        <div class="auto-item">
-          <div class="auto-item-icon">⏰</div>
-          <div class="auto-item-label">Relances factures en retard</div>
-          <div class="auto-item-badge ab-green">24h</div>
+      <div class="feature-card fcard-green">
+        <div class="fc-top">
+          <div class="fc-emoji">💰</div>
+          <div class="fc-name">Facturer sans y penser</div>
         </div>
-        <div class="auto-item">
-          <div class="auto-item-icon">🔁</div>
-          <div class="auto-item-label">Factures récurrentes générées</div>
-          <div class="auto-item-badge ab-blue">Auto</div>
-        </div>
-        <div class="auto-item">
-          <div class="auto-item-icon">⭐</div>
-          <div class="auto-item-label">NPS créé à clôture projet</div>
-          <div class="auto-item-badge ab-purple">Trigger</div>
-        </div>
-        <div class="auto-item">
-          <div class="auto-item-icon">🔔</div>
-          <div class="auto-item-label">Webhooks Slack / Zapier / n8n</div>
-          <div class="auto-item-badge ab-green">RT</div>
-        </div>
-        <div class="auto-item">
-          <div class="auto-item-icon">💾</div>
-          <div class="auto-item-label">Backup base de données</div>
-          <div class="auto-item-badge ab-blue">Daily</div>
+        <div class="fc-desc">Factures numérotées automatiquement, abonnements récurrents générés chaque mois, relances envoyées en cas de retard de paiement.</div>
+        <div class="fc-tags">
+          <span class="fc-tag tag-green">Récurrents</span>
+          <span class="fc-tag tag-green">Relances auto</span>
+          <span class="fc-tag tag-green">Cashflow</span>
         </div>
       </div>
+
+      <div class="feature-card fcard-orange">
+        <div class="fc-top">
+          <div class="fc-emoji">📁</div>
+          <div class="fc-name">Suivre vos projets</div>
+        </div>
+        <div class="fc-desc">Avancement par phases, suivi des heures passées, rapport de mission PDF prêt à envoyer au client en fin de projet.</div>
+        <div class="fc-tags">
+          <span class="fc-tag tag-orange">Suivi phases</span>
+          <span class="fc-tag tag-orange">Time tracking</span>
+          <span class="fc-tag tag-orange">Rapport PDF</span>
+        </div>
+      </div>
+
+      <div class="feature-card fcard-teal">
+        <div class="fc-top">
+          <div class="fc-emoji">🔍</div>
+          <div class="fc-name">Auditer vos clients</div>
+        </div>
+        <div class="fc-desc">Diagnostics IA et cybersécurité sous forme de questionnaires guidés. Score calculé automatiquement avec préconisations personnalisées.</div>
+        <div class="fc-tags">
+          <span class="fc-tag tag-teal">Diagnostic IA</span>
+          <span class="fc-tag tag-teal">Cybersécurité</span>
+          <span class="fc-tag tag-teal">PDF partageable</span>
+        </div>
+      </div>
+
+      <div class="feature-card fcard-red">
+        <div class="fc-top">
+          <div class="fc-emoji">📊</div>
+          <div class="fc-name">Piloter votre activité</div>
+        </div>
+        <div class="fc-desc">Tableau de bord en temps réel, chiffre d'affaires sur 12 mois, score de satisfaction client NPS, alertes intelligentes et recherche instantanée.</div>
+        <div class="fc-tags">
+          <span class="fc-tag tag-red">Reporting</span>
+          <span class="fc-tag tag-red">Score NPS</span>
+          <span class="fc-tag tag-red">Recherche ⌘K</span>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <!-- ── FOOTER ── -->
+  <!-- BENEFITS -->
+  <div class="benefits-section">
+
+    <div class="benefit">
+      <div class="benefit-icon">⏱️</div>
+      <div>
+        <div class="benefit-title">Gagnez du temps chaque jour</div>
+        <div class="benefit-desc">Relances, factures récurrentes, rapports PDF… tout ce qui était manuel se fait maintenant automatiquement pendant que vous travaillez.</div>
+      </div>
+    </div>
+
+    <div class="benefit">
+      <div class="benefit-icon">🔒</div>
+      <div>
+        <div class="benefit-title">Tout au même endroit</div>
+        <div class="benefit-desc">Clients, devis, factures, projets, documents et diagnostics accessibles depuis une seule application, même hors connexion.</div>
+      </div>
+    </div>
+
+    <div class="benefit">
+      <div class="benefit-icon">📱</div>
+      <div>
+        <div class="benefit-title">Accessible partout</div>
+        <div class="benefit-desc">Fonctionne sur ordinateur, tablette et mobile. Installable comme une application, utilisable même sans internet grâce au mode hors-ligne.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
   <div class="footer">
-    <div>
-      <div class="footer-brand">ACCESSIA <span>Pro</span></div>
-      <div class="footer-sub">Conseil & Intégration IA · contact@accessia.pro · www.accessia.pro</div>
+    <div class="footer-brand">ACCESSIA <span>Pro</span></div>
+    <div class="footer-urls">
+      <div class="footer-url">Application : <strong>localhost:3001</strong></div>
+      <div class="footer-url">Démarrage : <strong>start-dev.bat</strong></div>
     </div>
-    <div style="display:flex;gap:24px;align-items:center;">
-      <div style="text-align:center;">
-        <div style="font-size:18px;font-weight:800;color:#6b8fff;">localhost:3001</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3);">Frontend</div>
-      </div>
-      <div style="width:1px;height:32px;background:rgba(255,255,255,0.08)"></div>
-      <div style="text-align:center;">
-        <div style="font-size:18px;font-weight:800;color:#6ee7b7;">localhost:8000</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3);">Backend API</div>
-      </div>
-      <div style="width:1px;height:32px;background:rgba(255,255,255,0.08)"></div>
-      <div style="text-align:center;">
-        <div style="font-size:18px;font-weight:800;color:#c4b5fd;">start-dev.bat</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3);">Démarrage</div>
-      </div>
-    </div>
-    <div class="footer-meta">Version 2.0 · Mars 2026<br>FastAPI + Next.js 14 + SQLite</div>
+    <div class="footer-date">Version 2.0 · Mars 2026 · contact@accessia.pro</div>
   </div>
 
-</div><!-- /page -->
+</div>
 </body>
 </html>
