@@ -167,6 +167,7 @@ class Quote(Base):
     valid_until = Column(DateTime, nullable=True)
     description = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    items_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 

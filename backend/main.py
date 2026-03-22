@@ -15,11 +15,12 @@ from enum import Enum
 from typing import Optional, List
 
 from fastapi import FastAPI, Depends, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 # TrustedHostMiddleware retiré — bloquait les requêtes Docker
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field, field_validator
 from slugify import slugify
 
@@ -33,7 +34,12 @@ log = logging.getLogger(__name__)
 # CONFIG
 # ═══════════════════════════════════════════════════════════════
 
-SECRET_KEY = os.getenv("SECRET_KEY", "CHANGEZ_MOI_cle_secrete_32_chars_min")
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY:
+    if os.getenv("ENV", "development") == "production":
+        raise RuntimeError("SECRET_KEY doit être défini en production (variable d'environnement)")
+    SECRET_KEY = "dev-only-insecure-key-do-not-use-in-prod"
+    log.warning("SECRET_KEY non défini — clé de développement utilisée. NE PAS utiliser en production.")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 # Crée les tables au démarrage + migration automatique
@@ -108,8 +114,10 @@ def _run_migrations():
         try:
             cursor.execute("ALTER TABLE quotes ADD COLUMN items_json TEXT")
             conn.commit()
-        except Exception:
+        except sqlite3.OperationalError:
             pass  # colonne déjà présente
+        except Exception as mig_err:
+            log.warning("Migration items_json inattendue : %s", mig_err)
         conn.commit()
         conn.close()
         log.info("Migrations terminées avec succès")
@@ -128,6 +136,11 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    return RedirectResponse(url="/api/docs", status_code=308)
+
 # ── Middleware sécurité ──────────────────────────────────────
 ALLOWED_ORIGINS = [
     "http://localhost:3001",
@@ -140,7 +153,7 @@ ALLOWED_ORIGINS = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -442,6 +455,17 @@ def _next_invoice_number(db: Session) -> str:
         Invoice.number.like(f"ACC-{year}-%")
     ).scalar() or 0
     return f"ACC-{year}-{count + 1:03d}"
+
+
+def _safe_json_loads(raw: Optional[str], default=None) -> list:
+    """Désérialise du JSON en tolérant les données corrompues."""
+    if not raw:
+        return default if default is not None else []
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as e:
+        log.warning("JSON malformé ignoré (%.100s…) : %s", raw, e)
+        return default if default is not None else []
 
 
 def _serialize_activity(a: Activity) -> dict:
@@ -1492,8 +1516,8 @@ def create_quote(body: QuoteCreate, db: Session = Depends(get_db)):
     if body.valid_until:
         try:
             valid_until = datetime.fromisoformat(body.valid_until.replace("Z", "+00:00"))
-        except Exception:
-            pass
+        except ValueError:
+            raise HTTPException(422, f"Format de date invalide : {body.valid_until!r}. Utilisez ISO 8601 (ex: 2026-12-31)")
     items_data = [i.model_dump() for i in body.items]
     amount_ht = body.amount_ht if body.amount_ht is not None else sum(
         i["qty"] * i["unit_price"] for i in items_data
@@ -1513,9 +1537,16 @@ def create_quote(body: QuoteCreate, db: Session = Depends(get_db)):
         created_at=_now(),
         updated_at=_now(),
     )
-    db.add(qt)
-    db.commit()
-    db.refresh(qt)
+    try:
+        db.add(qt)
+        db.commit()
+        db.refresh(qt)
+    except IntegrityError:
+        db.rollback()
+        qt.number = _next_quote_number(db)
+        db.add(qt)
+        db.commit()
+        db.refresh(qt)
     return _serialize_quote(qt)
 
 
@@ -1528,8 +1559,8 @@ def update_quote(quote_id: int, body: QuoteUpdate, db: Session = Depends(get_db)
     if body.valid_until:
         try:
             valid_until = datetime.fromisoformat(body.valid_until.replace("Z", "+00:00"))
-        except Exception:
-            pass
+        except ValueError:
+            raise HTTPException(422, f"Format de date invalide : {body.valid_until!r}. Utilisez ISO 8601 (ex: 2026-12-31)")
     items_data = [i.model_dump() for i in body.items]
     amount_ht = body.amount_ht if body.amount_ht is not None else sum(
         i["qty"] * i["unit_price"] for i in items_data
@@ -1596,7 +1627,7 @@ def delete_quote(quote_id: int, db: Session = Depends(get_db)):
 
 
 def _serialize_quote(qt: Quote) -> dict:
-    items = json.loads(qt.items_json) if getattr(qt, 'items_json', None) else []
+    items = _safe_json_loads(qt.items_json)
     return {
         "id": qt.id,
         "number": qt.number,
@@ -2068,7 +2099,7 @@ def quote_pdf(quote_id: int, db: Session = Depends(get_db)):
     if not qt:
         raise HTTPException(404, "Devis non trouvé")
 
-    items = json.loads(qt.items_json) if getattr(qt, 'items_json', None) else []
+    items = _safe_json_loads(qt.items_json)
     client = qt.client
     tva_amount = round(qt.amount_ht * qt.tva_rate / 100, 2)
     amount_ttc = round(qt.amount_ht + tva_amount, 2)
