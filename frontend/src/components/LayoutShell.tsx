@@ -21,13 +21,19 @@ function LayoutShellInner({ children }: { children: React.ReactNode }) {
     }
     const onOnline = () => setOffline(false)
     const onOffline = () => setOffline(true)
+    const onApiOffline = (e: Event) => {
+      const detail = (e as CustomEvent<{ offline: boolean }>).detail
+      setOffline(Boolean(detail?.offline))
+    }
     window.addEventListener('storage', onStorage)
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
+    window.addEventListener('accessia-offline-status', onApiOffline as EventListener)
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
+      window.removeEventListener('accessia-offline-status', onApiOffline as EventListener)
     }
   }, [])
 

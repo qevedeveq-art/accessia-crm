@@ -243,3 +243,20 @@ class Webhook(Base):
     active     = Column(Boolean, default=True)
     secret     = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=_utcnow)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String(50), nullable=False, index=True)
+    severity = Column(String(20), nullable=False, default="info", index=True)
+    entity_type = Column(String(50), nullable=True, index=True)
+    entity_id = Column(Integer, nullable=True, index=True)
+    title = Column(String(300), nullable=False)
+    message = Column(Text, nullable=True)
+    dedupe_key = Column(String(120), nullable=False, unique=True, index=True)
+    is_read = Column(Boolean, default=False, index=True)
+    read_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)

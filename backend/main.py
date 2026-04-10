@@ -17,7 +17,7 @@ from pathlib import Path
 from enum import Enum
 from typing import Optional, List
 
-from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Request, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form, Request, BackgroundTasks
 from fastapi.responses import Response, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 # TrustedHostMiddleware retiré — bloquait les requêtes Docker
@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field, field_validator
 from slugify import slugify
 
 from database import engine, get_db, Base
-from models import Client, Project, Contact, Invoice, Activity, Task, Diagnostic, Quote, TimeEntry, RecurringInvoice, ProjectTemplate, NpsSurvey, Webhook
+from models import Client, Project, Contact, Invoice, Activity, Task, Diagnostic, Quote, TimeEntry, RecurringInvoice, ProjectTemplate, NpsSurvey, Webhook, Notification
 import file_service
 
 log = logging.getLogger(__name__)
@@ -180,6 +180,22 @@ def _run_migrations():
                 created_at DATETIME
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type VARCHAR(50) NOT NULL,
+                severity VARCHAR(20) NOT NULL DEFAULT 'info',
+                entity_type VARCHAR(50),
+                entity_id INTEGER,
+                title VARCHAR(300) NOT NULL,
+                message TEXT,
+                dedupe_key VARCHAR(120) UNIQUE NOT NULL,
+                is_read BOOLEAN DEFAULT 0,
+                read_at DATETIME,
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """)
         conn.commit()
         conn.close()
         log.info("Migrations terminées avec succès")
@@ -187,6 +203,13 @@ def _run_migrations():
         log.warning(f"Migration automatique échouée (non critique) : {e}")
 
 _run_migrations()
+
+# Seed des données initiales (uniquement si la base est vide)
+try:
+    from seed import run_seed
+    run_seed()
+except Exception as _seed_err:
+    log.warning(f"Seed ignoré (non critique) : {_seed_err}")
 
 # ═══════════════════════════════════════════════════════════════
 # SCHEDULER — Relances + Facturation récurrente
@@ -429,6 +452,7 @@ class ClientCreate(BaseModel):
             clean = v.replace(" ", "").replace("-", "")
             if clean and (not clean.isdigit() or len(clean) != 14):
                 raise ValueError("Le SIRET doit contenir exactement 14 chiffres")
+            return clean
         return v
 
 
@@ -447,6 +471,16 @@ class ClientUpdate(BaseModel):
     budget_range: Optional[str] = Field(None, max_length=50)
     notes: Optional[str] = Field(None, max_length=5000)
     pipeline_stage: Optional[PipelineStage] = None
+
+    @field_validator("siret")
+    @classmethod
+    def validate_siret(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            clean = v.replace(" ", "").replace("-", "")
+            if clean and (not clean.isdigit() or len(clean) != 14):
+                raise ValueError("Le SIRET doit contenir exactement 14 chiffres")
+            return clean
+        return v
 
 
 class ProjectCreate(BaseModel):
@@ -656,6 +690,186 @@ def _serialize_task(t: Task) -> dict:
     }
 
 
+def _serialize_notification(n: Notification) -> dict:
+    return {
+        "id": n.id,
+        "type": n.type,
+        "severity": n.severity,
+        "entity_type": n.entity_type,
+        "entity_id": n.entity_id,
+        "title": n.title,
+        "message": n.message,
+        "is_read": n.is_read,
+        "created_at": n.created_at.isoformat() if n.created_at else None,
+        "updated_at": n.updated_at.isoformat() if n.updated_at else None,
+        "read_at": n.read_at.isoformat() if n.read_at else None,
+    }
+
+
+def _collect_alerts(db: Session) -> dict:
+    now = _now()
+
+    overdue_invoices_q = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.client))
+        .filter(Invoice.status == "envoyee", Invoice.due_date < now)
+        .all()
+    )
+    overdue_invoices = [
+        {
+            "id": inv.id,
+            "number": inv.number,
+            "client_name": inv.client.name if inv.client else "",
+            "amount_ttc": round(inv.amount_ht * (1 + inv.tva_rate / 100), 2),
+            "due_date": inv.due_date.isoformat() if inv.due_date else None,
+            "days_late": (now - inv.due_date).days if inv.due_date else 0,
+        }
+        for inv in overdue_invoices_q
+    ]
+
+    overdue_tasks_q = (
+        db.query(Task)
+        .options(joinedload(Task.client))
+        .filter(Task.status != "fait", Task.due_date != None, Task.due_date < now)
+        .all()
+    )
+    overdue_tasks = [
+        {
+            "id": t.id,
+            "title": t.title,
+            "client_name": t.client.name if t.client else "",
+            "client_id": t.client_id,
+            "due_date": t.due_date.isoformat() if t.due_date else None,
+            "days_late": (now - t.due_date).days if t.due_date else 0,
+            "priority": t.priority,
+        }
+        for t in overdue_tasks_q
+    ]
+
+    from datetime import timedelta
+
+    cutoff = now - timedelta(days=21)
+    pipeline_stages = ["nouveau", "qualifie", "proposition", "negociation"]
+    silent_clients_q = db.query(Client).filter(Client.pipeline_stage.in_(pipeline_stages)).all()
+    silent_clients = []
+    for c in silent_clients_q:
+        last_act = db.query(func.max(Activity.date)).filter(Activity.client_id == c.id).scalar()
+        if last_act is None or (last_act.replace(tzinfo=None) < cutoff.replace(tzinfo=None)):
+            silent_clients.append({
+                "id": c.id,
+                "name": c.name,
+                "pipeline_stage": c.pipeline_stage,
+                "last_activity_date": last_act.isoformat() if last_act else None,
+                "days_silent": (now.replace(tzinfo=None) - last_act.replace(tzinfo=None)).days if last_act else 999,
+            })
+
+    horizon = now + timedelta(days=7)
+    upcoming_tasks_q = (
+        db.query(Task)
+        .filter(Task.status != "fait", Task.due_date >= now, Task.due_date <= horizon)
+        .all()
+    )
+    upcoming_deadlines = [
+        {
+            "type": "task",
+            "id": t.id,
+            "title": t.title,
+            "due_date": t.due_date.isoformat() if t.due_date else None,
+            "days_left": (t.due_date - now).days if t.due_date else 0,
+        }
+        for t in upcoming_tasks_q
+    ]
+
+    return {
+        "overdue_invoices": overdue_invoices,
+        "overdue_tasks": overdue_tasks,
+        "silent_clients": silent_clients,
+        "upcoming_deadlines": upcoming_deadlines,
+    }
+
+
+def _notification_candidates(alerts: dict) -> list[dict]:
+    candidates: list[dict] = []
+
+    for inv in alerts["overdue_invoices"]:
+        severity = "critical" if inv["days_late"] >= 30 else "warning"
+        candidates.append({
+            "type": "facture_retard",
+            "severity": severity,
+            "entity_type": "invoice",
+            "entity_id": inv["id"],
+            "title": f"Facture {inv['number']} en retard",
+            "message": f"{inv['client_name']} a une facture en retard de {inv['days_late']} jour(s) pour {inv['amount_ttc']:,.0f} € TTC.",
+            "dedupe_key": f"invoice-overdue-{inv['id']}",
+        })
+
+    for task in alerts["overdue_tasks"]:
+        severity = "critical" if task["priority"] in ("haute", "urgente") else "warning"
+        candidates.append({
+            "type": "tache_retard",
+            "severity": severity,
+            "entity_type": "task",
+            "entity_id": task["id"],
+            "title": f"Tâche en retard : {task['title']}",
+            "message": f"{task['client_name'] or 'Sans client'} · {task['days_late']} jour(s) de retard · priorité {task['priority']}.",
+            "dedupe_key": f"task-overdue-{task['id']}",
+        })
+
+    for client in alerts["silent_clients"]:
+        severity = "warning" if client["days_silent"] >= 30 else "info"
+        candidates.append({
+            "type": "prospect_inactif",
+            "severity": severity,
+            "entity_type": "client",
+            "entity_id": client["id"],
+            "title": f"Prospect silencieux : {client['name']}",
+            "message": f"Aucune activité récente détectée depuis {client['days_silent']} jour(s). Étape pipeline : {client['pipeline_stage']}.",
+            "dedupe_key": f"client-silent-{client['id']}",
+        })
+
+    for deadline in alerts["upcoming_deadlines"]:
+        candidates.append({
+            "type": "phase_echeance",
+            "severity": "info" if deadline["days_left"] > 2 else "warning",
+            "entity_type": deadline["type"],
+            "entity_id": deadline["id"],
+            "title": f"Échéance à venir : {deadline['title']}",
+            "message": f"Échéance prévue dans {deadline['days_left']} jour(s).",
+            "dedupe_key": f"deadline-{deadline['type']}-{deadline['id']}",
+        })
+
+    return candidates
+
+
+def _sync_notifications(db: Session) -> int:
+    alerts = _collect_alerts(db)
+    candidates = _notification_candidates(alerts)
+    existing = {n.dedupe_key: n for n in db.query(Notification).all()}
+    active_keys = {c["dedupe_key"] for c in candidates}
+    new_count = 0
+
+    for candidate in candidates:
+        current = existing.get(candidate["dedupe_key"])
+        if current:
+            current.type = candidate["type"]
+            current.severity = candidate["severity"]
+            current.entity_type = candidate["entity_type"]
+            current.entity_id = candidate["entity_id"]
+            current.title = candidate["title"]
+            current.message = candidate["message"]
+            current.updated_at = _now()
+        else:
+            db.add(Notification(**candidate, created_at=_now(), updated_at=_now()))
+            new_count += 1
+
+    stale_notifications = db.query(Notification).filter(~Notification.dedupe_key.in_(active_keys)).all()
+    for stale in stale_notifications:
+        db.delete(stale)
+
+    db.commit()
+    return new_count
+
+
 # ═══════════════════════════════════════════════════════════════
 # DASHBOARD
 # ═══════════════════════════════════════════════════════════════
@@ -766,6 +980,10 @@ def get_client(client_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/clients", status_code=201)
 def create_client(data: ClientCreate, db: Session = Depends(get_db)):
+    if data.siret:
+        existing_siret = db.query(Client).filter(Client.siret == data.siret).first()
+        if existing_siret:
+            raise HTTPException(status_code=409, detail=f"Un client existe déjà pour ce SIRET (ID {existing_siret.id})")
     base_slug = slugify(data.name)
     if not base_slug:
         raise HTTPException(status_code=400, detail="Nom de client invalide")
@@ -813,6 +1031,10 @@ def update_client(client_id: int, data: ClientUpdate, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Client non trouvé")
 
     update_data = data.model_dump(exclude_unset=True)
+    if update_data.get("siret"):
+        existing_siret = db.query(Client).filter(Client.siret == update_data["siret"], Client.id != client_id).first()
+        if existing_siret:
+            raise HTTPException(status_code=409, detail=f"Ce SIRET est déjà utilisé par le client {existing_siret.name}")
     for field_name, value in update_data.items():
         if isinstance(value, Enum):
             value = value.value
@@ -1055,6 +1277,16 @@ def browse_root():
     return file_service.list_directory(str(file_service.SENSIA_BASE))
 
 
+@app.get("/api/files/search")
+def search_files(
+    q: str = Query(..., min_length=2, max_length=100),
+    path: Optional[str] = Query(None, max_length=500),
+):
+    if path and not file_service.is_safe_path(path):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    return file_service.search_files(q, path)
+
+
 @app.get("/api/files/browse")
 def browse_directory(path: str = Query(..., max_length=500)):
     if not file_service.is_safe_path(path):
@@ -1080,6 +1312,20 @@ class FileWriteRequest(BaseModel):
     content: str
 
 
+class FileCreateFolderRequest(BaseModel):
+    path: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=120)
+
+
+class FileRenameRequest(BaseModel):
+    path: str
+    new_name: str = Field(..., min_length=1, max_length=120)
+
+
+class FileDeleteRequest(BaseModel):
+    path: str
+
+
 @app.post("/api/files/write")
 def write_file(data: FileWriteRequest):
     if not file_service.is_safe_path(data.path):
@@ -1091,6 +1337,63 @@ def write_file(data: FileWriteRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/files/mkdir")
+def create_folder(data: FileCreateFolderRequest):
+    if data.path and not file_service.is_safe_path(data.path):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    try:
+        item = file_service.create_directory(data.path, data.name)
+        return {"ok": True, "item": item}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except FileExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.patch("/api/files/rename")
+def rename_file_or_directory(data: FileRenameRequest):
+    if not file_service.is_safe_path(data.path):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    try:
+        item = file_service.rename_path(data.path, data.new_name)
+        return {"ok": True, "item": item}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except FileExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/files/delete")
+def delete_file_or_directory(data: FileDeleteRequest):
+    if not file_service.is_safe_path(data.path):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    try:
+        file_service.delete_path(data.path)
+        return {"ok": True}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/files/upload")
+async def upload_file(path: Optional[str] = Form(None), upload: UploadFile = File(...)):
+    if path and not file_service.is_safe_path(path):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    content = await upload.read()
+    try:
+        item = file_service.save_upload(path, upload.filename or "fichier", content)
+        return {"ok": True, "item": item}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/api/prestations")
@@ -1478,95 +1781,83 @@ def regenerate_share_token(diag_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/alerts")
 def get_alerts(db: Session = Depends(get_db)):
-    now = _now()
+    return _collect_alerts(db)
 
-    # Factures en retard
-    overdue_invoices_q = (
-        db.query(Invoice)
-        .options(joinedload(Invoice.client))
-        .filter(Invoice.status == "envoyee", Invoice.due_date < now)
-        .all()
-    )
-    overdue_invoices = [
-        {
-            "id": inv.id,
-            "number": inv.number,
-            "client_name": inv.client.name if inv.client else "",
-            "amount_ttc": round(inv.amount_ht * (1 + inv.tva_rate / 100), 2),
-            "due_date": inv.due_date.isoformat() if inv.due_date else None,
-            "days_late": (now - inv.due_date).days if inv.due_date else 0,
-        }
-        for inv in overdue_invoices_q
-    ]
 
-    # Tâches en retard
-    overdue_tasks_q = (
-        db.query(Task)
-        .options(joinedload(Task.client))
-        .filter(Task.status != "fait", Task.due_date != None, Task.due_date < now)
-        .all()
-    )
-    overdue_tasks = [
-        {
-            "id": t.id,
-            "title": t.title,
-            "client_name": t.client.name if t.client else "",
-            "due_date": t.due_date.isoformat() if t.due_date else None,
-            "days_late": (now - t.due_date).days if t.due_date else 0,
-            "priority": t.priority,
-        }
-        for t in overdue_tasks_q
-    ]
+# ═══════════════════════════════════════════════════════════════
+# NOTIFICATIONS
+# ═══════════════════════════════════════════════════════════════
 
-    # Leads silencieux (pipeline actif, aucune activité depuis 21j)
-    from datetime import timedelta
-    cutoff = now - timedelta(days=21)
-    pipeline_stages = ["nouveau", "contact", "qualification", "proposition", "negociation"]
-    silent_clients_q = (
-        db.query(Client)
-        .filter(Client.pipeline_stage.in_(pipeline_stages))
-        .all()
-    )
-    silent_clients = []
-    for c in silent_clients_q:
-        last_act = (
-            db.query(func.max(Activity.date))
-            .filter(Activity.client_id == c.id)
-            .scalar()
-        )
-        if last_act is None or (last_act.replace(tzinfo=None) < cutoff.replace(tzinfo=None)):
-            silent_clients.append({
-                "id": c.id,
-                "name": c.name,
-                "pipeline_stage": c.pipeline_stage,
-                "last_activity_date": last_act.isoformat() if last_act else None,
-                "days_silent": (now.replace(tzinfo=None) - last_act.replace(tzinfo=None)).days if last_act else 999,
-            })
+@app.get("/api/notifications")
+def list_notifications(
+    unread_only: bool = False,
+    severity: Optional[str] = Query(None, pattern="^(critical|warning|info)$"),
+    type: Optional[str] = Query(None, max_length=50),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    _sync_notifications(db)
+    q = db.query(Notification)
+    if unread_only:
+        q = q.filter(Notification.is_read == False)
+    if severity:
+        q = q.filter(Notification.severity == severity)
+    if type:
+        q = q.filter(Notification.type == type)
+    notifications = q.order_by(Notification.created_at.desc()).limit(limit).all()
+    return [_serialize_notification(n) for n in notifications]
 
-    # Échéances à venir (7 prochains jours)
-    horizon = now + timedelta(days=7)
-    upcoming_tasks_q = (
-        db.query(Task)
-        .filter(Task.status != "fait", Task.due_date >= now, Task.due_date <= horizon)
-        .all()
-    )
-    upcoming_deadlines = [
-        {
-            "type": "task",
-            "id": t.id,
-            "title": t.title,
-            "due_date": t.due_date.isoformat() if t.due_date else None,
-            "days_left": (t.due_date - now).days if t.due_date else 0,
-        }
-        for t in upcoming_tasks_q
-    ]
 
+@app.get("/api/notifications/summary")
+def notifications_summary(db: Session = Depends(get_db)):
+    _sync_notifications(db)
+    notifications = db.query(Notification).all()
+    unread = [n for n in notifications if not n.is_read]
     return {
-        "overdue_invoices": overdue_invoices,
-        "overdue_tasks": overdue_tasks,
-        "silent_clients": silent_clients,
-        "upcoming_deadlines": upcoming_deadlines,
+        "total": len(notifications),
+        "unread": len(unread),
+        "critical": len([n for n in unread if n.severity == "critical"]),
+        "warning": len([n for n in unread if n.severity == "warning"]),
+        "info": len([n for n in unread if n.severity == "info"]),
     }
+
+
+@app.post("/api/notifications/check")
+def check_notifications(db: Session = Depends(get_db)):
+    created = _sync_notifications(db)
+    return {"count": created}
+
+
+@app.patch("/api/notifications/{notification_id}/read")
+def mark_notification_read(notification_id: int, db: Session = Depends(get_db)):
+    notification = db.query(Notification).filter(Notification.id == notification_id).first()
+    if not notification:
+        raise HTTPException(404, "Notification introuvable")
+    notification.is_read = True
+    notification.read_at = _now()
+    db.commit()
+    return {"id": notification.id}
+
+
+@app.patch("/api/notifications/mark-all-read")
+def mark_all_notifications_read(db: Session = Depends(get_db)):
+    unread = db.query(Notification).filter(Notification.is_read == False).all()
+    now = _now()
+    for notification in unread:
+        notification.is_read = True
+        notification.read_at = now
+    db.commit()
+    return {"count": len(unread)}
+
+
+@app.delete("/api/notifications/{notification_id}")
+def delete_notification(notification_id: int, db: Session = Depends(get_db)):
+    notification = db.query(Notification).filter(Notification.id == notification_id).first()
+    if not notification:
+        raise HTTPException(404, "Notification introuvable")
+    db.delete(notification)
+    db.commit()
+    return {"message": "Notification supprimée"}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2594,12 +2885,14 @@ def backup_restore(filename: str):
 # MISE À JOUR AUTOMATIQUE
 # ═══════════════════════════════════════════════════════════════
 
-_GIT_REPO = Path(__file__).parent.parent
+_GIT_REPO = Path(os.getenv("GIT_REPO_PATH", str(Path(__file__).parent.parent)))
 
 
 @app.get("/api/update/check")
 def update_check():
     try:
+        if not (_GIT_REPO / ".git").exists():
+            return {"up_to_date": True, "commits_behind": 0, "latest_message": None, "error": "Depot Git introuvable"}
         subprocess.run(
             ["git", "fetch", "--quiet"],
             cwd=_GIT_REPO, capture_output=True, timeout=10, check=False
@@ -2631,6 +2924,8 @@ def update_check():
 @app.post("/api/update/apply")
 def update_apply():
     try:
+        if not (_GIT_REPO / ".git").exists():
+            raise HTTPException(500, "Depot Git introuvable pour appliquer la mise a jour")
         pull = subprocess.run(
             ["git", "pull", "--rebase"],
             cwd=_GIT_REPO, capture_output=True, text=True, timeout=60
@@ -2643,13 +2938,49 @@ def update_apply():
             subprocess.run(["pip", "install", "-r", str(req), "-q"],
                            capture_output=True, timeout=120, check=False)
         return {
-            "message": "Mise à jour appliquée. Redémarrez le serveur backend pour activer les changements.",
+            "message": "Mise à jour appliquée. Redémarrez ACCESSIA Pro pour reconstruire les services et activer tous les changements.",
             "output": pull.stdout.strip(),
         }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(500, f"Erreur de mise à jour : {e}")
+
+
+# ═══════════════════════════════════════════════════════════════
+# MAINTENANCE / CENTRE DE CONTROLE
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/maintenance/overview")
+def maintenance_overview(db: Session = Depends(get_db)):
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./sensia.db")
+    db_path = db_url.replace("sqlite:////", "/").replace("sqlite:///", "")
+    backup_dir = _BACKUP_DIR
+    backup_files = sorted(backup_dir.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True) if backup_dir.exists() else []
+    notifications = db.query(Notification).filter(Notification.is_read == False).all()
+
+    return {
+        "version": "1.2.0",
+        "paths": {
+            "base_dir": str(file_service.SENSIA_BASE),
+            "repo_dir": str(_GIT_REPO),
+            "db_path": db_path,
+            "catalogue_path": str(file_service.CATALOGUE_PATH),
+            "backup_dir": str(backup_dir),
+        },
+        "counts": {
+            "clients": db.query(func.count(Client.id)).scalar() or 0,
+            "projects": db.query(func.count(Project.id)).scalar() or 0,
+            "quotes": db.query(func.count(Quote.id)).scalar() or 0,
+            "invoices": db.query(func.count(Invoice.id)).scalar() or 0,
+            "tasks_open": db.query(func.count(Task.id)).filter(Task.status != "fait").scalar() or 0,
+            "notifications_unread": len(notifications),
+            "backups": len(backup_files),
+        },
+        "last_backup": backup_files[0].name if backup_files else None,
+        "last_backup_at": datetime.fromtimestamp(backup_files[0].stat().st_mtime, tz=timezone.utc).isoformat() if backup_files else None,
+        "git_repo_available": (_GIT_REPO / ".git").exists(),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -3118,11 +3449,17 @@ def global_search(q: str = Query(..., min_length=2), db: Session = Depends(get_d
         (Quote.title.ilike(like)) | (Quote.number.ilike(like))
     ).limit(5).all()
     tasks = db.query(Task).filter(Task.title.ilike(like)).limit(5).all()
+    diagnostics = db.query(Diagnostic).options(joinedload(Diagnostic.client)).filter(
+        (Diagnostic.title.ilike(like)) | (Diagnostic.type.ilike(like))
+    ).limit(5).all()
+    files = file_service.search_files(q, limit=6)
     return {
         "clients": [{"id": c.id, "name": c.name, "sector": c.sector, "status": c.status} for c in clients],
         "projects": [{"id": p.id, "code": p.code, "name": p.name, "client_name": p.client.name if p.client else ""} for p in projects],
         "quotes": [{"id": qt.id, "number": qt.number, "title": qt.title, "client_name": qt.client.name if qt.client else "", "status": qt.status} for qt in quotes],
-        "tasks": [{"id": t.id, "title": t.title, "status": t.status, "priority": t.priority} for t in tasks],
+        "tasks": [{"id": t.id, "title": t.title, "status": t.status, "priority": t.priority, "client_id": t.client_id, "project_id": t.project_id} for t in tasks],
+        "diagnostics": [{"id": d.id, "title": d.title, "type": d.type, "status": d.status, "client_name": d.client.name if d.client else ""} for d in diagnostics],
+        "files": files,
     }
 
 

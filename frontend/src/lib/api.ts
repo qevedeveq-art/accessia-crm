@@ -32,20 +32,58 @@ function buildQuery(params?: Record<string, any>): string {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    // FastAPI validation errors return detail as array
-    const detail = err.detail
-    if (Array.isArray(detail)) {
-      throw new Error(detail.map((d: any) => d.msg || JSON.stringify(d)).join(', '))
-    }
-    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Erreur réseau')
+  const method = (options?.method || 'GET').toUpperCase()
+  const isGet = method === 'GET'
+  const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData
+  const headers = new Headers(options?.headers || {})
+  if (!isFormData && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
   }
-  return res.json()
+
+  const setOfflineState = (next: boolean) => {
+    isOffline = next
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('accessia-offline-status', { detail: { offline: next } }))
+    }
+  }
+
+  if (isGet && typeof navigator !== 'undefined' && !navigator.onLine) {
+    const cached = cacheGet<T>(path)
+    if (cached) {
+      setOfflineState(true)
+      return cached
+    }
+  }
+
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      const detail = err.detail
+      if (Array.isArray(detail)) {
+        throw new Error(detail.map((d: any) => d.msg || JSON.stringify(d)).join(', '))
+      }
+      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Erreur réseau')
+    }
+    const data = await res.json()
+    if (isGet) {
+      cacheSet(path, data)
+      setOfflineState(false)
+    }
+    return data
+  } catch (error) {
+    if (isGet) {
+      const cached = cacheGet<T>(path)
+      if (cached) {
+        setOfflineState(true)
+        return cached
+      }
+    }
+    throw error
+  }
 }
 
 // ─── DASHBOARD ───────────────────────────────────────────────
@@ -321,11 +359,55 @@ export const browseDir = (path: string) =>
     ? Promise.resolve(DEMO_FILES.filter(f => f.path.startsWith(path + '/') && f.path.split('/').length === path.split('/').length + 1))
     : request<FileItem[]>(`/files/browse?path=${encodeURIComponent(path)}`)
 
+export const searchFiles = (q: string, path?: string) =>
+  isDemoMode()
+    ? Promise.resolve(DEMO_FILES.filter(f => f.name.toLowerCase().includes(q.toLowerCase())).slice(0, 20))
+    : request<FileItem[]>(`/files/search${buildQuery({ q, path })}`)
+
 export const readFile = (path: string) =>
   isDemoMode()
     ? Promise.resolve({ content: `# Fichier de démonstration\n\nCe fichier fait partie des données de démo ACCESSIA Pro.\n\nChemin : ${path}`, path })
     : request<{ content: string; path: string }>(`/files/read?path=${encodeURIComponent(path)}`)
 
+export const writeFile = (path: string, content: string) =>
+  isDemoMode()
+    ? Promise.resolve({ ok: true })
+    : request<{ ok: boolean }>('/files/write', { method: 'POST', body: JSON.stringify({ path, content }) })
+
+export const createFolder = (path: string | null, name: string) =>
+  isDemoMode()
+    ? Promise.resolve({ ok: true, item: { name, path: [path, name].filter(Boolean).join('/'), is_dir: true, modified: new Date().toISOString() } as FileItem })
+    : request<FileMutationResult>('/files/mkdir', { method: 'POST', body: JSON.stringify({ path, name }) })
+
+export const renameFilePath = (path: string, new_name: string) =>
+  isDemoMode()
+    ? Promise.resolve({ ok: true })
+    : request<FileMutationResult>('/files/rename', { method: 'PATCH', body: JSON.stringify({ path, new_name }) })
+
+export const deleteFilePath = (path: string) =>
+  isDemoMode()
+    ? Promise.resolve({ ok: true })
+    : request<{ ok: boolean }>('/files/delete', { method: 'DELETE', body: JSON.stringify({ path }) })
+
+export const uploadFileToPath = (path: string | null, file: File) => {
+  if (isDemoMode()) {
+    return Promise.resolve({
+      ok: true,
+      item: {
+        name: file.name,
+        path: [path, file.name].filter(Boolean).join('/'),
+        is_dir: false,
+        size: file.size,
+        modified: new Date().toISOString(),
+        extension: file.name.includes('.') ? `.${file.name.split('.').pop()}` : undefined,
+      } as FileItem,
+    })
+  }
+  const body = new FormData()
+  if (path) body.append('path', path)
+  body.append('upload', file)
+  return request<FileMutationResult>('/files/upload', { method: 'POST', body })
+}
 // ─── ALERTES ─────────────────────────────────────────────────
 
 export const getAlerts = () =>
@@ -640,6 +722,11 @@ export interface FileItem {
   extension?: string
 }
 
+export interface FileMutationResult {
+  ok: boolean
+  item?: FileItem
+}
+
 export interface QuoteItem {
   name: string
   qty: number
@@ -759,13 +846,6 @@ export const searchCompany = (q: string): Promise<{ results: CompanySearchResult
     ? Promise.resolve(DEMO_COMPANY_SEARCH)
     : request<{ results: CompanySearchResult[]; total: number }>(`/search-company?q=${encodeURIComponent(q)}`)
 
-// ─── FICHIERS — ÉCRITURE ──────────────────────────────────────
-
-export const writeFile = (path: string, content: string) =>
-  isDemoMode()
-    ? Promise.resolve({ ok: true })
-    : request<{ ok: boolean }>('/files/write', { method: 'POST', body: JSON.stringify({ path, content }) })
-
 // ─── PRESTATIONS ─────────────────────────────────────────────
 
 export interface Prestation {
@@ -857,16 +937,32 @@ export interface NotificationItem {
   type: string
   severity: 'critical' | 'warning' | 'info'
   entity_type?: string
+  entity_id?: number
   title: string
   message?: string
   is_read: boolean
   created_at?: string
+  updated_at?: string
+  read_at?: string
 }
 
-export const getNotifications = (params?: { unread_only?: boolean; limit?: number }) =>
+export interface NotificationSummary {
+  total: number
+  unread: number
+  critical: number
+  warning: number
+  info: number
+}
+
+export const getNotifications = (params?: { unread_only?: boolean; severity?: string; type?: string; limit?: number }) =>
   isDemoMode()
     ? Promise.resolve([] as NotificationItem[])
-    : request<NotificationItem[]>(`/notifications${params ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))) : ''}`)
+    : request<NotificationItem[]>(`/notifications${buildQuery(params)}`)
+
+export const getNotificationSummary = () =>
+  isDemoMode()
+    ? Promise.resolve({ total: 0, unread: 0, critical: 0, warning: 0, info: 0 } as NotificationSummary)
+    : request<NotificationSummary>('/notifications/summary')
 
 export const checkNotifications = () =>
   isDemoMode()
@@ -887,6 +983,43 @@ export const deleteNotification = (id: number) =>
   isDemoMode()
     ? Promise.resolve({ message: 'OK' })
     : request<{ message: string }>(`/notifications/${id}`, { method: 'DELETE' })
+
+// ─── MAINTENANCE ──────────────────────────────────────────────
+
+export interface MaintenanceOverview {
+  version: string
+  paths: {
+    base_dir: string
+    repo_dir: string
+    db_path: string
+    catalogue_path: string
+    backup_dir: string
+  }
+  counts: {
+    clients: number
+    projects: number
+    quotes: number
+    invoices: number
+    tasks_open: number
+    notifications_unread: number
+    backups: number
+  }
+  last_backup: string | null
+  last_backup_at: string | null
+  git_repo_available: boolean
+}
+
+export const getMaintenanceOverview = () =>
+  isDemoMode()
+    ? Promise.resolve({
+        version: '1.2.0',
+        paths: { base_dir: '/', repo_dir: '/', db_path: '/tmp/demo.db', catalogue_path: '/tmp/CATALOGUE_OFFRES.md', backup_dir: '/tmp/backups' },
+        counts: { clients: 0, projects: 0, quotes: 0, invoices: 0, tasks_open: 0, notifications_unread: 0, backups: 0 },
+        last_backup: null,
+        last_backup_at: null,
+        git_repo_available: false,
+      } as MaintenanceOverview)
+    : request<MaintenanceOverview>('/maintenance/overview')
 
 // ─── PORTAIL CLIENT ────────────────────────────────────────────
 
@@ -1170,7 +1303,9 @@ export interface SearchResults {
   clients: Array<{ id: number; name: string; sector?: string; status: string }>
   projects: Array<{ id: number; code: string; name: string; client_name: string }>
   quotes: Array<{ id: number; number: string; title: string; client_name: string; status: string }>
-  tasks: Array<{ id: number; title: string; status: string; priority: string }>
+  tasks: Array<{ id: number; title: string; status: string; priority: string; client_id?: number; project_id?: number }>
+  diagnostics: Array<{ id: number; title: string; type: string; status: string; client_name?: string }>
+  files: FileItem[]
 }
 
 export const globalSearch = (q: string) =>

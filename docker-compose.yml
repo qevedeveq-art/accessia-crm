@@ -1,6 +1,7 @@
 # ═══════════════════════════════════════════════════════════
-#  SENSIA MANAGER — Docker Compose
-#  Services: backend (FastAPI) · frontend (Next.js) · Twenty CRM
+#  ACCESSIA Pro — Docker Compose
+#  Optimisé pour Apple Silicon (MacBook M5 Pro — ARM64)
+#  Services: backend (FastAPI) · frontend (Next.js)
 # ═══════════════════════════════════════════════════════════
 
 services:
@@ -13,19 +14,31 @@ services:
       - "127.0.0.1:8001:8000"
     volumes:
       - ../:/sensia_data:rw
+      - ./:/repo:rw
+      # CATALOGUE_OFFRES.md monté au chemin exact où file_service.py le cherche
+      # (Path(__file__).parent.parent = / dans le conteneur)
+      - ./CATALOGUE_OFFRES.md:/CATALOGUE_OFFRES.md:rw
     environment:
       SENSIA_BASE_DIR: /sensia_data
-      DATABASE_URL: sqlite:////sensia_data/_SENSIA_APP/sensia.db
+      DATABASE_URL: sqlite:////sensia_data/_ACCESSIA_APP/sensia.db
+      GIT_REPO_PATH: /repo
       SECRET_KEY: ${SECRET_KEY:-CHANGEZ_MOI_cle_secrete_32_chars_min}
+      # Optimisations Python
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONOPTIMIZE: "1"
     restart: unless-stopped
+    # Utilise la mémoire unifiée du M5 Pro de façon efficace
+    mem_limit: 512m
+    memswap_limit: 512m
     healthcheck:
       test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:8000/api/health"]
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 20s
+      start_period: 15s
 
-  # ── Frontend Next.js (build production multi-stage) ─────
+  # ── Frontend Next.js (build production standalone) ──────
   frontend:
     build:
       context: ./frontend
@@ -35,7 +48,13 @@ services:
       - "127.0.0.1:3001:3001"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8001
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Optimise le garbage collector Node.js
+      NODE_OPTIONS: "--max-old-space-size=512"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m

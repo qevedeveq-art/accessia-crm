@@ -9,6 +9,7 @@ import os
 import logging
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,17 @@ def ensure_standard_dirs() -> None:
 
 # Taille max des fichiers lisibles (1 Mo)
 MAX_READ_SIZE = 1_048_576
+MAX_SEARCH_RESULTS = 60
+_PROTECTED_ROOT_NAMES = {
+    "01_COMMERCIAL",
+    "02_COMPTABILITE",
+    "03_JURIDIQUE",
+    "04_MARKETING",
+    "05_PROJETS",
+    "06_FORMATION",
+    "07_ADMINISTRATIF",
+    "_ACCESSIA_APP",
+}
 
 
 def _safe_name(name: str) -> str:
@@ -253,6 +265,26 @@ def write_file(path: str, content: str) -> None:
     target.write_text(content, encoding="utf-8")
 
 
+def _is_hidden_or_sensitive(path: Path) -> bool:
+    return (
+        any(part.startswith(".") for part in path.parts) or
+        any(part in ("__pycache__", "venv", "node_modules", ".git", "_ACCESSIA_APP") for part in path.parts)
+    )
+
+
+def _ensure_mutable_target(target: Path) -> Path:
+    resolved = target.resolve()
+    base_resolved = SENSIA_BASE.resolve()
+    resolved.relative_to(base_resolved)
+    if resolved == base_resolved:
+        raise ValueError("Action interdite sur la racine ACCESSIA")
+    if resolved.parent == base_resolved and resolved.name in _PROTECTED_ROOT_NAMES:
+        raise ValueError("Action interdite sur un dossier racine protégé")
+    if resolved.name in (".env", ".env.local", ".git", "sensia.db", "sensia.db-shm", "sensia.db-wal"):
+        raise ValueError("Action interdite sur un fichier sensible")
+    return resolved
+
+
 def is_safe_path(path: str) -> bool:
     """Vérifie que le chemin est bien à l'intérieur de SENSIA_BASE et ne contient pas de traversal."""
     try:
@@ -266,6 +298,114 @@ def is_safe_path(path: str) -> bool:
         return True
     except (ValueError, OSError):
         return False
+
+
+def create_directory(parent_path: Optional[str], name: str) -> dict:
+    parent = Path(parent_path) if parent_path else SENSIA_BASE
+    if not parent.exists() or not parent.is_dir():
+        raise FileNotFoundError("Dossier parent introuvable")
+    safe_name = _safe_name(name)
+    if not safe_name:
+        raise ValueError("Nom de dossier invalide")
+    target = _ensure_mutable_target(parent / safe_name)
+    target.mkdir(parents=False, exist_ok=False)
+    stat = target.stat()
+    return {
+        "name": target.name,
+        "path": str(target),
+        "is_dir": True,
+        "size": None,
+        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+        "extension": None,
+    }
+
+
+def rename_path(path: str, new_name: str) -> dict:
+    source = _ensure_mutable_target(Path(path))
+    if not source.exists():
+        raise FileNotFoundError("Élément introuvable")
+    safe_name = _safe_name(new_name)
+    if not safe_name:
+        raise ValueError("Nouveau nom invalide")
+    target = _ensure_mutable_target(source.parent / safe_name)
+    if target.exists():
+        raise FileExistsError("Un élément avec ce nom existe déjà")
+    source.rename(target)
+    stat = target.stat()
+    return {
+        "name": target.name,
+        "path": str(target),
+        "is_dir": target.is_dir(),
+        "size": target.stat().st_size if target.is_file() else None,
+        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+        "extension": target.suffix.lower() if target.is_file() else None,
+    }
+
+
+def delete_path(path: str) -> None:
+    target = _ensure_mutable_target(Path(path))
+    if not target.exists():
+        raise FileNotFoundError("Élément introuvable")
+    if target.is_dir():
+        shutil.rmtree(target)
+    else:
+        target.unlink()
+
+
+def save_upload(parent_path: Optional[str], filename: str, content: bytes) -> dict:
+    parent = Path(parent_path) if parent_path else SENSIA_BASE
+    if not parent.exists() or not parent.is_dir():
+        raise FileNotFoundError("Dossier parent introuvable")
+    safe_name = _safe_name(Path(filename).name)
+    if not safe_name:
+        raise ValueError("Nom de fichier invalide")
+    target = _ensure_mutable_target(parent / safe_name)
+    target.write_bytes(content)
+    stat = target.stat()
+    return {
+        "name": target.name,
+        "path": str(target),
+        "is_dir": False,
+        "size": stat.st_size,
+        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+        "extension": target.suffix.lower(),
+    }
+
+
+def search_files(query: str, root_path: Optional[str] = None, limit: int = MAX_SEARCH_RESULTS) -> list:
+    root = Path(root_path) if root_path else SENSIA_BASE
+    if not root.exists() or not root.is_dir():
+        return []
+    root = root.resolve()
+    q = query.strip().lower()
+    if len(q) < 2:
+        return []
+    items = []
+    for item in root.rglob("*"):
+        if len(items) >= limit:
+            break
+        try:
+            resolved = item.resolve()
+            resolved.relative_to(SENSIA_BASE.resolve())
+        except (ValueError, OSError):
+            continue
+        if _is_hidden_or_sensitive(resolved.relative_to(SENSIA_BASE.resolve())):
+            continue
+        if q not in item.name.lower():
+            continue
+        try:
+            stat = item.stat()
+            items.append({
+                "name": item.name,
+                "path": str(item),
+                "is_dir": item.is_dir(),
+                "size": stat.st_size if item.is_file() else None,
+                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "extension": item.suffix.lower() if item.is_file() else None,
+            })
+        except (PermissionError, OSError):
+            continue
+    return items
 
 
 # ─── CATALOGUE DES PRESTATIONS ────────────────────────────────────────────────

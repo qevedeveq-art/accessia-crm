@@ -210,6 +210,23 @@ function DiagnosticsContent() {
         </select>
       </div>
 
+      {/* État vide global — aucun diagnostic dans la base */}
+      {diagnostics.length === 0 && !error && !typeFilter && !statusFilter && !search && (
+        <div className="card p-10 text-center flex flex-col items-center gap-4 text-gray-400 mb-6">
+          <ClipboardCheck size={48} className="opacity-20" />
+          <div>
+            <p className="text-base font-semibold text-gray-600 mb-1">Aucun diagnostic pour l'instant</p>
+            <p className="text-sm text-gray-400 max-w-sm mx-auto">
+              Créez votre premier diagnostic en cliquant sur <strong>"Nouveau diagnostic"</strong>.<br />
+              Vous aurez besoin d'au moins un <Link href="/clients" className="text-accessia-600 hover:underline">client enregistré</Link> pour commencer.
+            </p>
+          </div>
+          <button onClick={() => setOpen(true)} className="btn-primary flex items-center gap-2 mt-2">
+            <Plus size={15} /> Créer un diagnostic
+          </button>
+        </div>
+      )}
+
       {/* Liste par section */}
       {[
         { type: 'cyber', items: cyberDiags, label: 'Cybersécurité', icon: Shield, accent: 'border-l-red-500' },

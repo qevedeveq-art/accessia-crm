@@ -468,7 +468,19 @@ export default function PrestationsPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-5">{error}</div>
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-5 flex items-start gap-3">
+          <div className="flex-1">
+            <p className="font-semibold mb-0.5">Impossible de charger le catalogue</p>
+            <p className="text-xs text-red-600">{error}</p>
+            <p className="text-xs text-red-500 mt-1">Vérifiez que le backend est bien démarré sur le port 8001.</p>
+          </div>
+          <button
+            onClick={() => { setError(''); setLoading(true); getPrestations().then(p => { setPrestations(p); setLoading(false) }).catch(e => { setError(e.message); setLoading(false) }) }}
+            className="text-xs text-red-700 underline hover:text-red-900 whitespace-nowrap mt-0.5"
+          >
+            Réessayer
+          </button>
+        </div>
       )}
 
       {/* Loading */}

@@ -15,6 +15,7 @@ backend/*.pyc
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+dist/
 
 # IDE
 .vscode/

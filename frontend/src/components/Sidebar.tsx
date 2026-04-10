@@ -23,9 +23,11 @@ import {
   Sun,
   LayoutTemplate,
   Webhook,
+  Bell,
+  Wrench,
 } from 'lucide-react'
 import { clsx } from 'clsx'
-import { isDemoMode, enableDemoMode, disableDemoMode, DEMO_KEY } from '@/lib/api'
+import { isDemoMode, enableDemoMode, disableDemoMode, DEMO_KEY, getNotificationSummary } from '@/lib/api'
 
 const nav = [
   { href: '/',            label: 'Dashboard',       icon: LayoutDashboard },
@@ -39,23 +41,34 @@ const nav = [
   { href: '/files',       label: 'Fichiers',        icon: Folder },
   { href: '/crm',         label: 'CRM',             icon: FileText },
   { href: '/reporting',   label: 'Reporting',       icon: BarChart2 },
+  { href: '/notifications', label: 'Notifications', icon: Bell },
   { href: '/guide',       label: 'Guide RGPD',      icon: BookOpen },
   { href: '/today',     label: 'Mon Jour',   icon: Sun },
   { href: '/templates', label: 'Templates',  icon: LayoutTemplate },
   { href: '/webhooks',  label: 'Webhooks',   icon: Webhook },
+  { href: '/maintenance', label: 'Maintenance', icon: Wrench },
 ]
 
 export default function Sidebar() {
   const path = usePathname()
   const [demo, setDemo] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
 
   useEffect(() => {
     setDemo(isDemoMode())
     const onStorage = (e: StorageEvent) => {
       if (e.key === DEMO_KEY) setDemo(e.newValue === '1')
     }
+    const loadSummary = () => {
+      getNotificationSummary().then(summary => setUnreadNotifications(summary.unread)).catch(() => {})
+    }
     window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    loadSummary()
+    const timer = window.setInterval(loadSummary, 30000)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.clearInterval(timer)
+    }
   }, [])
 
   const toggleDemo = () => {
@@ -100,7 +113,14 @@ export default function Sidebar() {
             >
               <Icon size={16} className="shrink-0" />
               <span>{label}</span>
-              {active && <ChevronRight size={12} className="ml-auto opacity-60" />}
+              <span className="ml-auto flex items-center gap-2">
+                {href === '/notifications' && unreadNotifications > 0 && (
+                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  </span>
+                )}
+                {active && <ChevronRight size={12} className="opacity-60" />}
+              </span>
             </Link>
           )
         })}

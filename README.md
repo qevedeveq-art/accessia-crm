@@ -97,6 +97,25 @@ stop.bat           # Windows
 docker compose down  # Manuel
 ```
 
+## Package macOS
+
+Le projet peut maintenant etre empaquete en application macOS autonome tout en conservant le stack Docker existant.
+
+```bash
+chmod +x setup-mac.sh macos/build-app.sh
+./setup-mac.sh
+```
+
+Artifacts generes :
+- `dist/macos/ACCESSIA Pro.app`
+- `dist/macos/ACCESSIA Stop.app`
+- `dist/macos/ACCESSIA Pro.dmg`
+
+Comportement du package :
+- Au premier lancement, le bundle installe le projet dans `~/Library/Application Support/ACCESSIA Pro/workspace`
+- Les donnees utilisateur restent dans `Application Support` et ne sont pas ecrasees par le bundle
+- Docker Desktop reste requis pour executer les conteneurs backend et frontend
+
 ## Configuration
 
 Copier `.env.example` en `.env` et adapter :
