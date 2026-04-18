@@ -1,5 +1,5 @@
 # Catalogue des Offres — ACCESSIA Pro
-> Dernière mise à jour : 2026-03-20
+> Dernière mise à jour : 2026-04-18
 
 ---
 
@@ -225,3 +225,138 @@ Automatisez une tâche précise et répétitive de votre quotidien : trier et cl
 - **Financement :** Chèques France Num | OPCO
 
 Journée de conseil intensive pour comprendre comment l'IA peut vous aider concrètement et repartir avec des outils gratuits opérationnels. Matin : diagnostic et identification des opportunités (audit de vos processus, identification des gains possibles). Après-midi : configuration d'outils IA gratuits et open source (Ollama pour exécuter un LLM en local, Open WebUI pour l'interface, n8n pour l'automatisation). Livrable : fiche de 3 pages avec votre plan d'action IA personnalisé et priorisé. Ce pack est souvent un premier pas avant le Pack A ou B.
+
+---
+
+## Diagnostic Cybersécurité — Formule Standard
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 2900
+- **Prix max HT :** 2900
+- **Durée :** 2 jours (1j audit + 1j rapport)
+- **Cible :** Dirigeants, responsables IT, DSI de PME
+- **Actif :** oui
+- **Livrables :** Rapport de diagnostic 10–15 pages | Cartographie des actifs et surfaces d'attaque | Évaluation des risques (matrice CVSS) | Top 10 des vulnérabilités identifiées | Plan de remédiation priorisé | Synthèse exécutive (2 pages) | Présentation aux décideurs (1h)
+- **Financement :** BPI France | OPCO | Chèques France Num
+
+Évaluez votre niveau de sécurité réel en une journée. Inspection de votre infrastructure (réseau, postes, serveurs, accès cloud), revue des pratiques et politiques de sécurité existantes, identification des vulnérabilités critiques et des non-conformités aux standards (ISO 27001, ANSSI). Résultat : un rapport clair avec les actions prioritaires classées par impact/effort, sans jargon technique inutile. Éligible Chèques France Num et aides BPI.
+
+---
+
+## Diagnostic Cybersécurité — Formule Approfondie
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 5800
+- **Prix max HT :** 5800
+- **Durée :** 4 jours
+- **Cible :** PME avec infrastructure complexe, secteurs réglementés
+- **Actif :** oui
+- **Livrables :** Tout ce que comprend la Formule Standard | Scan de vulnérabilités outillé (Nessus/OpenVAS) | Tests d'intrusion non-destructifs sur le périmètre externe | Revue de la politique RGPD appliquée aux SI | Analyse de la chaîne de sous-traitance IT | Roadmap cybersécurité 12 mois chiffrée
+- **Financement :** BPI France | OPCO | Chèques France Num
+
+Tout le Diagnostic Standard, enrichi d'une analyse technique outillée : scan de vulnérabilités, tests d'intrusion passifs sur le périmètre externe exposé (site web, API, VPN), revue croisée RGPD/cybersécurité et analyse des risques liés aux prestataires IT. Idéal pour les PME souhaitant préparer une certification ISO 27001 ou répondre à une exigence contractuelle (grands donneurs d'ordres, appels d'offres publics).
+
+---
+
+## Audit Pentest — Application Web & API
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 4900
+- **Prix max HT :** 12000
+- **Durée :** 1 à 3 semaines selon périmètre
+- **Cible :** PME avec application web, SaaS, API exposée au public
+- **Actif :** oui
+- **Livrables :** Rapport de pentest structuré (vulnérabilités + score CVSS) | Preuves d'exploitation (captures, logs) | Plan de remédiation technique détaillé | Test de vérification post-correction inclus | Attestation de test (fournie sur demande pour appels d'offres)
+- **Financement :** OPCO | BPI France | Aides régionales
+
+Test d'intrusion manuel selon la méthodologie OWASP Top 10 et PTES (Penetration Testing Execution Standard). Périmètre couvert : authentification et gestion des sessions, injection (SQL, XSS, XXE, SSRF), contrôle d'accès et élévation de privilèges, exposition de données sensibles, sécurité des API REST/GraphQL. Chaque vulnérabilité est documentée avec sa criticité, une preuve d'exploitation et une recommandation de correction précise. Devis sur mesure selon la taille de l'application.
+
+---
+
+## Mise en Conformité NIS2
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 6500
+- **Prix max HT :** 18000
+- **Durée :** 8 à 16 semaines
+- **Cible :** Entités soumises à la directive NIS2 (secteurs essentiels et importants)
+- **Actif :** oui
+- **Livrables :** Analyse d'écart NIS2 (gap analysis) | Plan d'action de mise en conformité | Politiques de sécurité rédigées (PSSI, PCA, PRI) | Procédures de notification d'incidents (ANSSI 24h/72h) | Formation des équipes dirigeantes (1/2 journée) | Dossier de preuve de conformité
+- **Financement :** BPI France | OPCO | Aides régionales France 2030
+
+La directive NIS2 impose de nouvelles obligations de cybersécurité depuis octobre 2024 à des milliers d'entreprises françaises. Nous vous accompagnons de l'analyse d'écart initiale jusqu'à la livraison d'un dossier de conformité complet : inventaire des actifs, politiques de sécurité (PSSI), plan de continuité d'activité, procédures de gestion et notification des incidents, et formation des dirigeants (responsabilité personnelle des dirigeants sous NIS2). Devis adapté à la taille de votre organisation.
+
+---
+
+## Formation Cybersécurité — Sensibilisation Collaborateurs
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 1500
+- **Prix max HT :** 1500
+- **Durée :** 1/2 journée (3h30) — jusqu'à 20 personnes
+- **Cible :** Toutes équipes, tout secteur
+- **Actif :** oui
+- **Livrables :** Support de formation (PDF) | Charte informatique prête à l'emploi | Quiz de sensibilisation (20 questions) | Fiche réflexe incidents à afficher
+- **Financement :** OPCO | Plan de développement des compétences | CPF
+
+Les 90% d'incidents de sécurité impliquent une erreur humaine. Cette demi-journée couvre les menaces du quotidien : phishing, spear-phishing et pretexting (avec exemples réels), mots de passe et gestion des accès (MFA), comportements à risque (shadow IT, Wi-Fi public, clés USB), que faire en cas d'incident ou de doute. Format interactif avec démonstrations live d'attaques réelles (phishing simulé) et exercices pratiques. Financement OPCO possible, dossier pris en charge.
+
+---
+
+## Formation Cybersécurité — Développeurs Sécurisés
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 3500
+- **Prix max HT :** 3500
+- **Durée :** 2 jours (14h) — jusqu'à 8 développeurs
+- **Cible :** Développeurs (web, mobile, backend)
+- **Actif :** oui
+- **Livrables :** Support de formation (PDF + labs) | Checklist de code review sécurité | Référence OWASP Top 10 annotée | Certificat de formation
+- **Financement :** OPCO | Plan de développement des compétences
+
+Jour 1 : OWASP Top 10 en pratique — injection SQL, XSS, CSRF, IDOR, SSRF avec exploitation et correction sur des applications vulnérables (DVWA, Juice Shop). Gestion sécurisée des secrets et variables d'environnement, authentification et gestion des sessions, chiffrement des données au repos et en transit. Jour 2 : intégrer la sécurité dans le cycle de développement — threat modeling, SAST/DAST dans la CI/CD, revue de code sécurité, gestion des dépendances vulnérables (CVE, SCA). Prérequis : notions de développement web.
+
+---
+
+## Pack Cyber PME — Protection Essentielle
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 3500
+- **Prix max HT :** 7000
+- **Durée :** 4 à 6 semaines
+- **Cible :** TPE/PME sans DSI, moins de 50 collaborateurs
+- **Actif :** oui
+- **Livrables :** Audit initial de sécurité (1 journée) | Configuration firewall et segmentation réseau | Déploiement MFA sur tous les accès critiques (Microsoft 365, Google Workspace, VPN) | Chiffrement des postes (BitLocker/FileVault) | Mise en place sauvegardes chiffrées testées (3-2-1) | Antivirus/EDR déployé et configuré | Politique de mots de passe + gestionnaire de mots de passe | Formation sécurité équipe (2h) | Documentation sécurité (politique, inventaire, procédures urgence)
+- **Financement :** Chèques France Num | OPCO | BPI France (si éligible)
+
+Le kit de sécurité de base pour les PME qui n'ont pas de DSI et qui veulent se protéger sans se ruiner. Couvre les 80% des risques avec 20% du budget : protection des accès (MFA partout), protection des données (chiffrement et sauvegarde testée), protection du réseau (firewall configuré), protection des postes (EDR), et formation des équipes. Prix selon le nombre de postes et la complexité de l'infrastructure.
+
+---
+
+## Pack Cyber PME — Remédiation d'Incident
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 2500
+- **Prix max HT :** 8000
+- **Durée :** 1 à 5 jours selon gravité
+- **Cible :** PME victimes d'un incident de sécurité (ransomware, compromission, fuite)
+- **Actif :** oui
+- **Livrables :** Analyse forensique de l'incident | Confinement et éradication de la menace | Restauration sécurisée des systèmes | Rapport d'incident (cause racine, chronologie, impact) | Plan de remédiation pour éviter la récidive | Assistance déclaration CNIL (si données personnelles impactées)
+- **Financement :** Assurance cyber | Déductible charges d'exploitation
+
+Intervention en urgence sur incident de sécurité actif ou récent. Analyse forensique pour comprendre comment l'attaque s'est produite, confinement de la menace pour stopper la propagation, restauration sécurisée à partir des sauvegardes saines, et rapport complet pour les assurances et les obligations de notification (CNIL, ANSSI). Disponibilité sous 24h. Devis établi après premier contact téléphonique d'urgence.
+
+---
+
+## MCO Cybersécurité — Surveillance & Veille
+
+- **Catégorie :** Cybersécurité
+- **Prix HT :** 600
+- **Prix max HT :** 1200
+- **Durée :** Abonnement mensuel (600–1 200 €/mois)
+- **Cible :** PME souhaitant externaliser la veille et la surveillance de sécurité
+- **Actif :** oui
+- **Livrables :** Rapport mensuel de sécurité | Scan de vulnérabilités mensuel (périmètre externe) | Veille CVE sur vos technologies | Alertes en temps réel (tentatives d'intrusion, anomalies) | Mises à jour de sécurité critiques appliquées | 4h de support sécurité/mois | Revue annuelle de la politique de sécurité
+- **Financement :** Déductible charges d'exploitation | Assurance cyber (réduction prime)
+
+Votre veille sécurité externalisée. Chaque mois : scan automatisé de votre périmètre exposé (site, API, VPN, MX) avec rapport des nouvelles vulnérabilités détectées, veille sur les CVE critiques affectant vos technologies (OS, frameworks, CMS), application des correctifs de sécurité urgents, et rapport synthétique avec indicateurs clés. En cas d'alerte : notification immédiate et coordination de la réponse. Engagement trimestriel minimum. Tarif selon le nombre d'IP/domaines surveillés.
