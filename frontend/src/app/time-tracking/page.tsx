@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Clock, Download, Plus, Trash2, BarChart3, Timer, DollarSign, TrendingUp,
+  Play, Square, RotateCcw,
 } from 'lucide-react'
 import {
   getTimeEntries, createTimeEntry, deleteTimeEntry, exportTimeEntriesCsv, getTimeEntriesSummary, getProjects,
@@ -18,6 +19,9 @@ export default function TimeTrackingPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ project_id: '', description: '', duration_minutes: '', billable: true, hourly_rate: '' })
   const [loading, setLoading] = useState(true)
+  const [timerActive, setTimerActive] = useState(false)
+  const [timerSeconds, setTimerSeconds] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = async () => {
     try {
@@ -31,6 +35,34 @@ export default function TimeTrackingPage() {
 
   useEffect(() => { load() }, [])
 
+  // Cleanup timer on unmount
+  useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current) } }, [])
+
+  const startTimer = () => {
+    setTimerActive(true)
+    timerRef.current = setInterval(() => setTimerSeconds(s => s + 1), 1000)
+  }
+
+  const stopTimer = () => {
+    setTimerActive(false)
+    if (timerRef.current) clearInterval(timerRef.current)
+    const minutes = Math.round(timerSeconds / 60)
+    if (minutes > 0) setForm(f => ({ ...f, duration_minutes: String(minutes) }))
+  }
+
+  const resetTimer = () => {
+    setTimerActive(false)
+    if (timerRef.current) clearInterval(timerRef.current)
+    setTimerSeconds(0)
+  }
+
+  const formatTimer = (s: number) => {
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = s % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
+  }
+
   const handleSubmit = async () => {
     if (!form.project_id || !form.description || !form.duration_minutes) return
     try {
@@ -42,6 +74,7 @@ export default function TimeTrackingPage() {
         hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined,
       })
       setForm({ project_id: '', description: '', duration_minutes: '', billable: true, hourly_rate: '' })
+      resetTimer()
       setShowForm(false)
       load()
     } catch (err: any) { alert(err.message) }
@@ -222,6 +255,47 @@ export default function TimeTrackingPage() {
                 <label className="text-xs font-medium text-gray-500">Description *</label>
                 <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm mt-1" placeholder="Travail effectué..." />
               </div>
+              {/* Chronomètre */}
+              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-2">Chronomètre</p>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-2xl font-bold text-gray-900 tabular-nums tracking-tight">
+                    {formatTimer(timerSeconds)}
+                  </span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    {!timerActive ? (
+                      <button
+                        type="button"
+                        onClick={startTimer}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors"
+                      >
+                        <Play size={12} /> Démarrer
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={stopTimer}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors"
+                      >
+                        <Square size={12} /> Arrêter
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={resetTimer}
+                      className="flex items-center gap-1 px-2 py-1.5 border border-gray-200 text-gray-500 rounded-lg text-xs hover:bg-gray-100 transition-colors"
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  </div>
+                </div>
+                {timerSeconds > 0 && !timerActive && (
+                  <p className="text-[11px] text-accessia-600 mt-1">
+                    Durée pre-remplie : {Math.round(timerSeconds / 60)} minute(s)
+                  </p>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-500">Durée (minutes) *</label>

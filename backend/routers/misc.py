@@ -45,6 +45,10 @@ from helpers import (
 
 log = logging.getLogger(__name__)
 
+import time as _time
+_dashboard_cache: dict = {}
+_DASHBOARD_TTL = 30  # secondes
+
 router = APIRouter()
 
 # ─── Chemins backup ──────────────────────────────────────────
@@ -60,6 +64,13 @@ _GIT_REPO = Path(os.getenv("GIT_REPO_PATH", str(Path(__file__).parent.parent.par
 
 @router.get("/api/dashboard")
 def get_dashboard(db: Session = Depends(get_db)):
+    cache_key = "dashboard"
+    now_ts = _time.monotonic()
+    if cache_key in _dashboard_cache:
+        cached_val, cached_ts = _dashboard_cache[cache_key]
+        if now_ts - cached_ts < _DASHBOARD_TTL:
+            return cached_val
+
     total_clients = db.query(func.count(Client.id)).scalar() or 0
     active_clients = db.query(func.count(Client.id)).filter(Client.status == "active").scalar() or 0
     prospects = db.query(func.count(Client.id)).filter(Client.status == "prospect").scalar() or 0
@@ -94,7 +105,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     phase_map = dict(phase_counts)
     phase_dist = [{"phase": i, "count": phase_map.get(i, 0)} for i in range(8)]
 
-    return {
+    result = {
         "kpis": {
             "total_clients": total_clients,
             "active_clients": active_clients,
@@ -111,6 +122,8 @@ def get_dashboard(db: Session = Depends(get_db)):
         "recent_projects": [_serialize_project(p) for p in recent_projects],
         "recent_clients": [_serialize_client(c) for c in recent_clients],
     }
+    _dashboard_cache[cache_key] = (result, _time.monotonic())
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════

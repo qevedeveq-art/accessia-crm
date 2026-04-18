@@ -5,14 +5,28 @@ import { useState, useEffect, Suspense } from 'react'
 import Sidebar from './Sidebar'
 import GlobalSearch from './GlobalSearch'
 import ErrorBoundary from './ErrorBoundary'
-import { isDemoMode, DEMO_KEY } from '@/lib/api'
-import { FlaskConical, WifiOff } from 'lucide-react'
+import { isDemoMode, DEMO_KEY, getAuthStatus, getAuthToken } from '@/lib/api'
+import { FlaskConical, WifiOff, Loader2 } from 'lucide-react'
 
 function LayoutShellInner({ children }: { children: React.ReactNode }) {
   const path = usePathname()
   const isPublicPage = path.startsWith('/share') || path.startsWith('/sign') || path.startsWith('/nps')
   const [demo, setDemo] = useState(false)
   const [offline, setOffline] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
+
+  useEffect(() => {
+    // Vérification auth au montage
+    getAuthStatus()
+      .then(s => {
+        if (s.auth_enabled && !getAuthToken()) {
+          window.location.href = '/login'
+        } else {
+          setAuthChecked(true)
+        }
+      })
+      .catch(() => setAuthChecked(true)) // En cas d'erreur, on laisse passer
+  }, [])
 
   useEffect(() => {
     setDemo(isDemoMode())
@@ -37,6 +51,14 @@ function LayoutShellInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('accessia-offline-status', onApiOffline as EventListener)
     }
   }, [])
+
+  if (!authChecked && !isPublicPage) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 size={32} className="animate-spin text-accessia-600" />
+      </div>
+    )
+  }
 
   if (isPublicPage) {
     return <>{children}</>

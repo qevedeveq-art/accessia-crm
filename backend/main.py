@@ -5,7 +5,41 @@ Point d'entrée principal : configuration, DB, scheduler, middlewares, routeurs.
 """
 import os
 import logging
+import json
+import logging.config
 from apscheduler.schedulers.background import BackgroundScheduler
+
+_LOG_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "logging.Formatter",
+            "fmt": '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":%(message)s}',
+            "datefmt": "%Y-%m-%dT%H:%M:%S",
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+        }
+    },
+    "root": {"handlers": ["console"], "level": os.getenv("LOG_LEVEL", "INFO")},
+}
+
+# Utilise python-json-logger si disponible, sinon format basique
+try:
+    from pythonjsonlogger import jsonlogger  # type: ignore
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(jsonlogger.JsonFormatter(
+        "%(asctime)s %(levelname)s %(name)s %(message)s"
+    ))
+    logging.root.handlers = [_handler]
+    logging.root.setLevel(os.getenv("LOG_LEVEL", "INFO"))
+except ImportError:
+    logging.config.dictConfig(_LOG_CONFIG)
+
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timezone
 from pathlib import Path
@@ -210,7 +244,15 @@ except Exception as _seed_err:
 # SCHEDULER — Relances + Facturation récurrente
 # ═══════════════════════════════════════════════════════════════
 
-_scheduler = BackgroundScheduler(daemon=True)
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore  # type: ignore
+
+_db_url_for_scheduler = os.getenv("DATABASE_URL", "sqlite:///./sensia.db")
+try:
+    _jobstores = {"default": SQLAlchemyJobStore(url=_db_url_for_scheduler)}
+    _scheduler = BackgroundScheduler(daemon=True, jobstores=_jobstores)
+except Exception as _sched_store_err:
+    log.warning("APScheduler SQLAlchemy jobstore indisponible, fallback mémoire : %s", _sched_store_err)
+    _scheduler = BackgroundScheduler(daemon=True)
 
 
 def _job_relances_automatiques():
@@ -387,6 +429,7 @@ app.add_middleware(
 # INCLUSION DES ROUTERS
 # ═══════════════════════════════════════════════════════════════
 
+from routers.auth import router as auth_router
 from routers.clients import router as clients_router
 from routers.projects import router as projects_router
 from routers.invoices import router as invoices_router
@@ -397,6 +440,7 @@ from routers.notifications import router as notifications_router
 from routers.reporting import router as reporting_router
 from routers.misc import router as misc_router
 
+app.include_router(auth_router)
 app.include_router(clients_router)
 app.include_router(projects_router)
 app.include_router(invoices_router)

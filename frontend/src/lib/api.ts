@@ -22,6 +22,29 @@ export const disableDemoMode = () => {
   if (typeof window !== 'undefined') localStorage.removeItem(DEMO_KEY)
 }
 
+// ─── AUTH TOKEN ───────────────────────────────────────────────
+
+export const AUTH_TOKEN_KEY = 'accessia_token'
+
+export const getAuthToken = (): string | null =>
+  typeof window !== 'undefined' ? localStorage.getItem(AUTH_TOKEN_KEY) : null
+
+export const setAuthToken = (token: string) => {
+  if (typeof window !== 'undefined') localStorage.setItem(AUTH_TOKEN_KEY, token)
+}
+
+export const clearAuthToken = () => {
+  if (typeof window !== 'undefined') localStorage.removeItem(AUTH_TOKEN_KEY)
+}
+
+export const login = (password: string) =>
+  request<{ access_token: string; token_type: string; expires_in: number; auth_enabled: boolean }>(
+    '/auth/login', { method: 'POST', body: JSON.stringify({ password }) }
+  )
+
+export const getAuthStatus = (): Promise<{ auth_enabled: boolean }> =>
+  request<{ auth_enabled: boolean }>('/auth/status')
+
 function buildQuery(params?: Record<string, any>): string {
   if (!params) return ''
   const filtered = Object.fromEntries(
@@ -38,6 +61,10 @@ async function request<T>(path: string, options?: RequestInit, _retryOn503 = tru
   const headers = new Headers(options?.headers || {})
   if (!isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
+  }
+  const token = getAuthToken()
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
   }
 
   const setOfflineState = (next: boolean) => {
@@ -81,6 +108,7 @@ async function request<T>(path: string, options?: RequestInit, _retryOn503 = tru
 
     // Gestion des codes d'erreur HTTP spécifiques
     if (res.status === 401) {
+      clearAuthToken()
       throw new Error('Session expirée')
     }
     if (res.status === 429) {

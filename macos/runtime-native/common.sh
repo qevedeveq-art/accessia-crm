@@ -304,6 +304,24 @@ build_frontend_if_needed() {
   local frontend_dir="${CRM_DIR}/frontend"
   local standalone_server="${frontend_dir}/.next/standalone/server.js"
 
+  # Si le build standalone est déjà dans le payload (pre-buildé), l'utiliser directement
+  if [ -f "${standalone_server}" ] && [ -d "${frontend_dir}/.next/static" ]; then
+    local prebuild_stamp="${frontend_dir}/.next/standalone/.prebuild-stamp"
+    if [ -f "${prebuild_stamp}" ]; then
+      local stored_hash
+      stored_hash="$(read_file_value "${BUILD_HASH_FILE}")"
+      # Si aucun hash stocké, c'est une première installation avec pre-build embarqué
+      if [ -z "${stored_hash}" ]; then
+        log "Frontend pre-buildé détecté — utilisation du build embarqué"
+        # Copier les assets si pas encore en place dans standalone
+        rsync -a --delete "${frontend_dir}/.next/static/" "${frontend_dir}/.next/standalone/.next/static/" 2>>"${LOG_FILE}" || true
+        rsync -a --delete "${frontend_dir}/public/" "${frontend_dir}/.next/standalone/public/" 2>>"${LOG_FILE}" || true
+        printf '%s' "prebuild-$(cat "${prebuild_stamp}")" > "${BUILD_HASH_FILE}"
+        return 0
+      fi
+    fi
+  fi
+
   # Hash des sources pertinentes
   # Utilise while+read pour gérer correctement les chemins avec espaces
   local current_hash

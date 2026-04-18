@@ -142,6 +142,30 @@ export default function Dashboard() {
         <p className="text-sm text-gray-500 mt-0.5">Vue d'ensemble ACCESSIA Pro</p>
       </div>
 
+      {/* Onboarding */}
+      {kpis.total_clients === 0 && kpis.total_projects === 0 && (
+        <div className="bg-gradient-to-br from-accessia-50 to-white border border-accessia-100 rounded-2xl p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Bienvenue sur ACCESSIA Pro</h2>
+          <p className="text-sm text-gray-500 mb-4">Commencez en 3 étapes pour exploiter tout le potentiel de votre CRM.</p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {[
+              { step: '1', title: 'Créer un client', desc: 'Ajoutez votre premier client ou prospect', href: '/clients?new=1' },
+              { step: '2', title: 'Créer un projet', desc: 'Associez une mission à ce client', href: '/projects' },
+              { step: '3', title: 'Rédiger un devis', desc: 'Générez votre première proposition commerciale', href: '/devis' },
+            ].map(s => (
+              <a key={s.step} href={s.href}
+                className="bg-white border border-gray-100 rounded-xl p-4 hover:border-accessia-300 hover:shadow-sm transition-all group">
+                <div className="w-7 h-7 rounded-lg bg-accessia-100 text-accessia-700 flex items-center justify-center font-bold text-sm mb-2 group-hover:bg-accessia-600 group-hover:text-white transition-colors">
+                  {s.step}
+                </div>
+                <p className="text-sm font-semibold text-gray-800">{s.title}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{s.desc}</p>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Alertes */}
       {alerts && <AlertsWidget alerts={alerts} />}
 

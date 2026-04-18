@@ -1,12 +1,39 @@
 """
 Router fichiers — /api/files/*, /api/prestations
 """
+from pathlib import Path
 from typing import Optional, List
 
+import mimetypes
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 
 import file_service
 from schemas import FileWriteRequest, FileCreateFolderRequest, FileRenameRequest, FileDeleteRequest, PrestationItem
+
+_MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+_ALLOWED_EXTENSIONS = {
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv",
+    ".txt", ".md", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+    ".zip", ".tar", ".gz", ".json", ".xml",
+}
+
+
+def _safe_filename(name: str) -> str:
+    """Sanitise le nom de fichier : retire les path traversal et caractères dangereux."""
+    import re, unicodedata
+    name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    name = re.sub(r"[^\w\s\-.]", "_", name)
+    name = name.replace("..", "_").replace("/", "_").replace("\\", "_")
+    return name.strip("_. ") or "fichier"
+
+
+def _validate_upload(file: UploadFile, content: bytes) -> None:
+    if len(content) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"Fichier trop volumineux (max 50 Mo)")
+    ext = Path(file.filename or "").suffix.lower()
+    if ext and ext not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(415, f"Extension non autorisée : {ext}")
 
 router = APIRouter()
 
@@ -111,8 +138,17 @@ async def upload_file(path: Optional[str] = Form(None), upload: UploadFile = Fil
     if path and not file_service.is_safe_path(path):
         raise HTTPException(status_code=403, detail="Accès non autorisé")
     content = await upload.read()
+    _validate_upload(upload, content)
+    # Sanitise le nom de fichier et reconstitue avec l'extension d'origine
+    original_ext = Path(upload.filename or "fichier").suffix.lower()
+    safe_name = _safe_filename(Path(upload.filename or "fichier").stem) + original_ext
+    # Vérification anti path-traversal sur le répertoire cible
+    base_dir = Path(path) if path else file_service.SENSIA_BASE
+    target_path = base_dir / safe_name
+    if not str(target_path.resolve()).startswith(str(base_dir.resolve())):
+        raise HTTPException(400, "Chemin invalide")
     try:
-        item = file_service.save_upload(path, upload.filename or "fichier", content)
+        item = file_service.save_upload(path, safe_name, content)
         return {"ok": True, "item": item}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

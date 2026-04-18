@@ -131,6 +131,50 @@ build_icon() {
   rm -rf "${tmp}"
 }
 
+# ── Pre-build frontend ──────────────────────────────────────────
+prebuild_frontend() {
+  local frontend_dir="${ROOT_DIR}/frontend"
+
+  if ! command -v node >/dev/null 2>&1; then
+    log "Node.js introuvable — le frontend sera buildé au premier lancement"
+    return 0
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    log "npm introuvable — le frontend sera buildé au premier lancement"
+    return 0
+  fi
+
+  log "Pre-build du frontend Next.js (embarqué dans le payload)…"
+
+  # Install deps si nécessaire
+  if [ ! -d "${frontend_dir}/node_modules" ]; then
+    log "  Installation des dépendances npm…"
+    (cd "${frontend_dir}" && npm install --legacy-peer-deps -q 2>/dev/null)
+  fi
+
+  # Build standalone
+  (cd "${frontend_dir}" && \
+    NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_API_URL=http://localhost:8001 \
+    NODE_ENV=production \
+    NODE_OPTIONS="--max-old-space-size=4096" \
+    npm run build 2>&1 | tail -5) || {
+    log "  Build échoué — le frontend sera buildé au premier lancement"
+    return 0
+  }
+
+  # Copier les assets dans standalone
+  local standalone_dir="${frontend_dir}/.next/standalone"
+  if [ -d "${standalone_dir}" ]; then
+    rsync -a --delete "${frontend_dir}/.next/static/" "${standalone_dir}/.next/static/" 2>/dev/null || true
+    rsync -a --delete "${frontend_dir}/public/" "${standalone_dir}/public/" 2>/dev/null || true
+    # Stamp pour détecter le pre-build au runtime
+    local stamp="${standalone_dir}/.prebuild-stamp"
+    printf '%s' "$(date -u +%s)" > "${stamp}"
+    log "Frontend buildé et prêt à embarquer"
+  fi
+}
+
 # ── Payload (code source + données) ─────────────────────────────
 copy_payload() {
   local payload_root="${APP_BUNDLE}/Contents/Resources/payload/root"
@@ -149,7 +193,7 @@ copy_payload() {
           --exclude '.env' --exclude '.DS_Store' \
           --exclude 'backend/venv' \
           --exclude 'frontend/node_modules' \
-          --exclude 'frontend/.next' \
+          --exclude 'frontend/.next/cache' \
           --exclude 'dist' \
           "${src}/" "${dest}/"
       else
@@ -216,6 +260,7 @@ main() {
   copy_runtime
   write_plist
   build_icon
+  prebuild_frontend
   copy_payload
   sign
   build_dmg

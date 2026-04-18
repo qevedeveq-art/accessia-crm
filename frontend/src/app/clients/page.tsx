@@ -8,7 +8,7 @@ import { getClients, createClient, searchCompany, importClientsCsv, exportClient
 import Link from 'next/link'
 import {
   Plus, Search, Building2, Mail, Phone, Loader2, Wand2, MapPin,
-  Users, TrendingUp, Briefcase, AlertCircle, Download, Upload,
+  Users, TrendingUp, Briefcase, AlertCircle, Download, Upload, ChevronDown,
 } from 'lucide-react'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
@@ -116,6 +116,8 @@ const EMPTY: ClientCreate = {
 function ClientsContent() {
   const searchParams = useSearchParams()
   const [clients, setClients] = useState<Client[]>([])
+  const [nextCursor, setNextCursor] = useState<number | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
   const [open, setOpen] = useState(false)
@@ -140,8 +142,37 @@ function ClientsContent() {
 
   const load = () =>
     getClients({ search: search || undefined, status: filter || undefined })
-      .then(setClients)
+      .then(data => {
+        if (Array.isArray(data)) {
+          setClients(data)
+          setNextCursor(null)
+        } else {
+          const paginated = data as unknown as { items: Client[]; next_cursor: number | null }
+          setClients(paginated.items)
+          setNextCursor(paginated.next_cursor)
+        }
+      })
       .catch(e => setError(e.message))
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const data = await getClients({ search: search || undefined, status: filter || undefined, cursor: nextCursor, limit: 50 } as Parameters<typeof getClients>[0])
+      if (Array.isArray(data)) {
+        setClients(prev => [...prev, ...data])
+        setNextCursor(null)
+      } else {
+        const paginated = data as unknown as { items: Client[]; next_cursor: number | null }
+        setClients(prev => [...prev, ...paginated.items])
+        setNextCursor(paginated.next_cursor)
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur de chargement')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => { load() }, [search, filter])
 
@@ -404,6 +435,20 @@ function ClientsContent() {
           </Link>
         ))}
       </div>
+
+      {/* Charger plus */}
+      {nextCursor && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 border border-gray-200 text-gray-600 px-6 py-2.5 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            {loadingMore ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+            Charger plus
+          </button>
+        </div>
+      )}
 
       {/* Modal Nouveau Client */}
       {open && (

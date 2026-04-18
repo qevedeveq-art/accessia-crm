@@ -11,7 +11,7 @@ import {
 import {
   Plus, FileText, Trash2, Check, ArrowRight, ChevronDown, ChevronUp,
   Search, X, Euro, Clock, Users, Tag, Package, Loader2, AlertCircle,
-  Eye, RefreshCw,
+  Eye, RefreshCw, ExternalLink,
 } from 'lucide-react'
 import { Suspense } from 'react'
 
@@ -452,12 +452,13 @@ function QuoteBuilder({ clients, prestations, prefillClientId, onClose, onCreate
 }
 
 // ─── Ligne devis ──────────────────────────────────────────────
-function QuoteRow({ quote, onStatusChange, onDelete, onConvert, onPdf }: {
+function QuoteRow({ quote, onStatusChange, onDelete, onConvert, onPdf, onPreview }: {
   quote: Quote
   onStatusChange: (id: number, s: string) => void
   onDelete: (id: number) => void
   onConvert: (id: number) => void
   onPdf: (id: number) => void
+  onPreview: (id: number) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   return (
@@ -482,11 +483,18 @@ function QuoteRow({ quote, onStatusChange, onDelete, onConvert, onPdf }: {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
-            title="Voir PDF / Imprimer"
-            onClick={() => onPdf(quote.id)}
+            title="Aperçu inline"
+            onClick={() => onPreview(quote.id)}
             className="p-2 text-gray-400 hover:text-accessia-600 rounded-lg hover:bg-accessia-50"
           >
             <Eye size={15} />
+          </button>
+          <button
+            title="Ouvrir PDF dans un onglet"
+            onClick={() => onPdf(quote.id)}
+            className="p-2 text-gray-400 hover:text-accessia-600 rounded-lg hover:bg-accessia-50"
+          >
+            <ExternalLink size={15} />
           </button>
           {quote.status === 'brouillon' && (
             <>
@@ -590,6 +598,7 @@ function DevisPageInner() {
   const [filterStatus, setFilterStatus] = useState('')
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
+  const [previewId, setPreviewId] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -631,6 +640,9 @@ function DevisPageInner() {
   }
   function handlePdf(id: number) {
     window.open(getQuotePdfUrl(id), '_blank')
+  }
+  function handlePreview(id: number) {
+    setPreviewId(id)
   }
 
   return (
@@ -716,6 +728,7 @@ function DevisPageInner() {
               onDelete={handleDelete}
               onConvert={handleConvert}
               onPdf={handlePdf}
+              onPreview={handlePreview}
             />
           ))}
         </div>
