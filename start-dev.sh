@@ -97,14 +97,6 @@ echo "  Ctrl+C pour arrêter les deux processus."
 echo "══════════════════════════════════════════════════"
 echo ""
 
-# ── Ouvrir le navigateur après démarrage ─────────────────
-sleep 4
-if command -v open &>/dev/null; then
-  open http://localhost:3001
-elif command -v xdg-open &>/dev/null; then
-  xdg-open http://localhost:3001 &
-fi
-
 # Attendre Ctrl+C et tuer les processus enfants proprement
 trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; deactivate 2>/dev/null; echo ''; echo '  Services arrêtés.'; exit 0" INT TERM
 wait

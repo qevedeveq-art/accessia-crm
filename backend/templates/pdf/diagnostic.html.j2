@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Rapport Diagnostic {{ diag_type_label }} — {{ client_name }}</title>
+<style>
+{% raw %}
+body { font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 30px; color: #1f2937; }
+h1 { color: #2850ff; font-size: 22px; margin-bottom: 4px; }
+h2 { color: #374151; font-size: 16px; border-bottom: 2px solid #2850ff; padding-bottom: 6px; margin-top: 28px; }
+.meta { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+.score-global { text-align: center; margin: 30px 0; padding: 24px; background: linear-gradient(135deg, #f0f4ff, #ede9fe); border-radius: 12px; }
+.score-global .label { font-size: 14px; color: #6b7280; }
+{% endraw %}
+.score-global .num { font-size: 48px; font-weight: 700; color: {{ global_color }}; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+  <div style="width:40px;height:40px;background:#2850ff;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700">A</div>
+  <div>
+    <h1 style="margin:0">ACCESSIA Pro</h1>
+    <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px">Conseil IA · PME &amp; Entrepreneurs</p>
+  </div>
+</div>
+
+<h1>Rapport de Diagnostic {{ diag_type_label }}</h1>
+<div class="meta">
+  <strong>Client :</strong> {{ client_name }} &nbsp;|&nbsp;
+  <strong>Date :</strong> {{ now_str }} &nbsp;|&nbsp;
+  <strong>Réf :</strong> DIAG-{{ diag_ref }}
+</div>
+
+<div class="score-global">
+  <div class="label">Score Global</div>
+  <div class="num">{{ global_score }}%</div>
+  <div class="label">{{ global_label }}</div>
+</div>
+
+<h2>Résultats par Section</h2>
+
+{% for section in sections %}
+<div style="margin-bottom:20px;border:1px solid #e5e7eb;border-radius:8px;padding:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0;color:#1f2937">{{ section.title }}</h3>
+    <span style="background:{{ section.color }};color:white;padding:2px 10px;border-radius:12px;font-size:13px;font-weight:600">{{ section.score_pct }}%</span>
+  </div>
+  <div style="background:#f3f4f6;border-radius:4px;height:8px;margin-bottom:12px">
+    <div style="background:{{ section.color }};height:8px;border-radius:4px;width:{{ section.score_pct }}%"></div>
+  </div>
+  {% if section.preconisations %}
+  <h4 style="font-size:13px;color:#6b7280;margin:8px 0 4px">Préconisations</h4>
+  <ul style="margin:0;padding-left:20px;font-size:13px;color:#374151">
+    {% for preco in section.preconisations %}
+    <li style="margin-bottom:4px">{{ preco }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endfor %}
+
+<hr style="margin-top:40px;border:none;border-top:1px solid #e5e7eb">
+<p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px">
+  Rapport généré automatiquement par ACCESSIA Pro — {{ now_str }}<br>
+  Ce document est confidentiel.
+</p>
+
+</body>
+</html>

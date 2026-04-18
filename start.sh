@@ -125,10 +125,4 @@ echo "  → Arrêter      : ./stop.sh"
 echo "══════════════════════════════════════════════════"
 echo ""
 
-# ── Ouvrir le navigateur (macOS natif) ────────────────────
-sleep 2
-if command -v open &>/dev/null; then
-  open http://localhost:3001
-elif command -v xdg-open &>/dev/null; then
-  xdg-open http://localhost:3001 &
-fi
+# Navigateur non ouvert automatiquement — ouvre manuellement http://localhost:3001

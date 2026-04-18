@@ -854,66 +854,56 @@ function ResultPickList({
   onToggleCompare: (c: CompanySearchResult) => void
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-5 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
         <p className="text-sm font-semibold text-gray-700">
           {results.length} résultat{results.length > 1 ? 's' : ''}
-          {total > results.length && <span className="font-normal text-gray-400"> sur {total.toLocaleString('fr-FR')}</span>}
+          {total > results.length && <span className="font-normal text-gray-400"> / {total.toLocaleString('fr-FR')}</span>}
         </p>
-        <div className="flex items-center gap-3">
-          {compareList.length > 0 && (
-            <span className="text-xs text-accessia-600 font-medium flex items-center gap-1">
-              <ArrowLeftRight size={12} /> {compareList.length}/2 sélectionnés
-            </span>
-          )}
-          <p className="text-xs text-gray-400 hidden sm:block">Cliquez pour voir · Comparer pour analyser côte à côte</p>
-        </div>
+        {compareList.length > 0 && (
+          <span className="text-xs text-accessia-600 font-medium flex items-center gap-1">
+            <ArrowLeftRight size={12} /> {compareList.length}/2
+          </span>
+        )}
       </div>
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-gray-50 overflow-y-auto max-h-[calc(100vh-260px)]">
         {results.map(c => {
           const isSelected = selected?.siren === c.siren
           const inCompare  = compareList.some(x => x.siren === c.siren)
           const eligible   = totalEligible(c.grants)
           const canCompare = compareList.length < 2 || inCompare
           return (
-            <div key={c.siren} className={`flex items-center gap-0 transition-colors ${isSelected ? 'bg-accessia-50 border-l-4 border-l-accessia-500' : 'border-l-4 border-l-transparent hover:bg-gray-50'}`}>
-              <button onClick={() => onSelect(c)} className="flex items-center gap-4 flex-1 px-4 py-3.5 text-left min-w-0">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${isSelected ? 'bg-accessia-600 text-white' : 'bg-accessia-100 text-accessia-700'}`}>
+            <div key={c.siren} className={`flex items-center transition-colors ${isSelected ? 'bg-accessia-50 border-l-4 border-l-accessia-500' : 'border-l-4 border-l-transparent hover:bg-gray-50'}`}>
+              <button onMouseDown={() => onSelect(c)} className="flex items-center gap-3 flex-1 px-3 py-3 text-left min-w-0">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${isSelected ? 'bg-accessia-600 text-white' : 'bg-accessia-100 text-accessia-700'}`}>
                   {c.name[0]}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold truncate ${isSelected ? 'text-accessia-800' : 'text-gray-900'}`}>{c.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    SIREN {c.siren} · {c.naf_label} · {c.city || c.postal_code} · {c.categorie}
+                  <p className="text-xs text-gray-400 truncate">
+                    {c.city || c.postal_code} · {c.categorie} · <span className={c.status === 'actif' ? 'text-green-600' : 'text-red-500'}>{c.status}</span>
                   </p>
+                  <p className="text-[11px] text-accessia-600 font-medium mt-0.5">{eligible}/{c.grants.length} aides</p>
                 </div>
-                <div className="text-right shrink-0 mr-2">
-                  <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${c.status === 'actif' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                    {c.status}
-                  </span>
-                  <p className="text-xs text-gray-400 mt-1">{eligible}/{c.grants.length} aides</p>
-                </div>
-                <ChevronRight size={15} className={`shrink-0 mr-2 ${isSelected ? 'text-accessia-500' : 'text-gray-300'}`} />
+                <ChevronRight size={14} className={`shrink-0 ${isSelected ? 'text-accessia-500' : 'text-gray-300'}`} />
               </button>
-              {/* Bouton Comparer */}
               <button
                 onClick={() => onToggleCompare(c)}
                 disabled={!canCompare}
-                title={inCompare ? 'Retirer de la comparaison' : 'Ajouter à la comparaison'}
-                className={`mr-3 p-2 rounded-lg text-xs transition-colors ${inCompare ? 'bg-accessia-100 text-accessia-700' : canCompare ? 'bg-gray-100 text-gray-500 hover:bg-accessia-100 hover:text-accessia-600' : 'bg-gray-50 text-gray-300 cursor-not-allowed'}`}
+                title={inCompare ? 'Retirer de la comparaison' : 'Comparer'}
+                className={`mr-2 p-1.5 rounded-lg transition-colors ${inCompare ? 'bg-accessia-100 text-accessia-700' : canCompare ? 'text-gray-300 hover:bg-accessia-100 hover:text-accessia-600' : 'text-gray-200 cursor-not-allowed'}`}
               >
-                <ArrowLeftRight size={13} />
+                <ArrowLeftRight size={12} />
               </button>
             </div>
           )
         })}
       </div>
       {compareList.length === 2 && (
-        <div className="px-4 py-3 border-t border-accessia-100 bg-accessia-50 flex items-center justify-between">
+        <div className="px-3 py-2 border-t border-accessia-100 bg-accessia-50">
           <p className="text-xs text-accessia-700 font-medium">
-            Comparaison : <strong>{compareList[0].name.split(' ')[0]}</strong> vs <strong>{compareList[1].name.split(' ')[0]}</strong>
+            <strong>{compareList[0].name.split(' ')[0]}</strong> vs <strong>{compareList[1].name.split(' ')[0]}</strong> →
           </p>
-          <span className="text-[10px] text-accessia-500">↓ Voir le tableau ci-dessous</span>
         </div>
       )}
     </div>
@@ -966,6 +956,10 @@ export default function RecherchePage() {
     if (e.key === 'Escape') setShowHistory(false)
   }
 
+  const handleSelect = (c: CompanySearchResult) => {
+    setSelected(c)
+  }
+
   const toggleCompare = (c: CompanySearchResult) => {
     setCompareList(prev => {
       const inList = prev.some(x => x.siren === c.siren)
@@ -999,7 +993,7 @@ export default function RecherchePage() {
   const showCompare = compareList.length === 2
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Prospection IA</h1>
@@ -1021,7 +1015,6 @@ export default function RecherchePage() {
               onBlur={() => setTimeout(() => setShowHistory(false), 150)}
               placeholder="Nom d'entreprise, SIREN (9 chiffres) ou SIRET (14 chiffres)…"
               className="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-accessia-300 focus:border-accessia-400 outline-none transition-all"
-              autoFocus
             />
             {/* Dropdown historique */}
             {showHistory && history.length > 0 && (
@@ -1086,35 +1079,46 @@ export default function RecherchePage() {
         </div>
       )}
 
-      {/* Résultats */}
+      {/* Résultats — layout deux colonnes */}
       {!loading && results.length > 0 && (
-        <>
+        <div className={results.length > 1 ? 'flex gap-4 items-start' : ''}>
+
+          {/* Colonne gauche : liste des résultats (seulement si plusieurs) */}
           {results.length > 1 && (
-            <ResultPickList
-              results={results} total={total}
-              selected={selected} onSelect={setSelected}
-              compareList={compareList} onToggleCompare={toggleCompare}
-            />
+            <div className="w-72 shrink-0 self-start sticky top-4">
+              <ResultPickList
+                results={results} total={total}
+                selected={selected} onSelect={handleSelect}
+                compareList={compareList} onToggleCompare={toggleCompare}
+              />
+            </div>
           )}
 
-          {/* Panneau comparaison */}
-          {showCompare && (
-            <ComparePanel
-              companies={compareList as [CompanySearchResult, CompanySearchResult]}
-              onClose={() => setCompareList([])}
-            />
-          )}
+          {/* Colonne droite : détail ou comparaison */}
+          <div className="flex-1 min-w-0">
+            {showCompare ? (
+              <ComparePanel
+                companies={compareList as [CompanySearchResult, CompanySearchResult]}
+                onClose={() => setCompareList([])}
+              />
+            ) : selected ? (
+              <CompanyCard
+                key={selected.siren}
+                company={selected}
+                onImport={setImportTarget}
+                isSaved={saved.some(x => x.siren === selected.siren)}
+                onToggleSave={toggleSave}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400">
+                <ChevronRight size={32} className="mb-3 opacity-30" />
+                <p className="text-sm font-medium">Sélectionnez une entreprise</p>
+                <p className="text-xs mt-1">Cliquez sur un résultat pour voir le détail</p>
+              </div>
+            )}
+          </div>
 
-          {/* Détail entreprise sélectionnée */}
-          {selected && !showCompare && (
-            <CompanyCard
-              company={selected}
-              onImport={setImportTarget}
-              isSaved={saved.some(x => x.siren === selected.siren)}
-              onToggleSave={toggleSave}
-            />
-          )}
-        </>
+        </div>
       )}
 
       {/* État initial */}

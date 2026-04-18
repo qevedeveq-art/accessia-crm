@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapport de Mission — {{ project_name }}</title>
+<style>
+{% raw %}
+body { font-family: Arial, sans-serif; margin: 40px; color: #222; }
+h1 { color: #2850ff; }
+h2 { color: #444; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+th, td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+th { background: #f4f4f4; }
+.kpi { display: inline-block; margin: 8px 16px 8px 0; padding: 12px 20px; background: #f0f4ff; border-radius: 8px; }
+{% endraw %}
+</style>
+</head>
+<body>
+
+<h1>Rapport de Mission — {{ project_name }}</h1>
+<p>
+  <strong>Client :</strong> {{ client_name }} &nbsp;|&nbsp;
+  <strong>Code :</strong> {{ project_code }} &nbsp;|&nbsp;
+  <strong>Statut :</strong> {{ project_status }}
+</p>
+
+<div>
+  <span class="kpi"><strong>Heures totales</strong><br>{{ total_hours }} h</span>
+  <span class="kpi"><strong>CA HT généré</strong><br>{{ total_ht_fmt }} €</span>
+  <span class="kpi"><strong>Tâches réalisées</strong><br>{{ tasks_count }}</span>
+</div>
+
+<h2>Tâches réalisées</h2>
+<table>
+  <tr><th>Titre</th><th>Complété le</th></tr>
+  {% for task in tasks_done %}
+  <tr>
+    <td>{{ task.title }}</td>
+    <td>{{ task.completed_at_str }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>Factures émises</h2>
+<table>
+  <tr><th>Numéro</th><th>Montant HT</th><th>Statut</th><th>Date</th></tr>
+  {% for inv in invoices %}
+  <tr>
+    <td>{{ inv.number }}</td>
+    <td>{{ inv.amount_ht_fmt }} €</td>
+    <td>{{ inv.status }}</td>
+    <td>{{ inv.issued_date_str }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<div style="margin-top:40px;font-size:12px;color:#999">
+  Document généré le {{ generated_at }} — ACCESSIA Pro
+</div>
+
+</body>
+</html>

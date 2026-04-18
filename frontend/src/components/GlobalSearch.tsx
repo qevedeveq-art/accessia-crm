@@ -7,6 +7,7 @@ import {
   Building2,
   CheckSquare,
   ClipboardCheck,
+  Clock,
   FileText,
   Folder,
   FolderKanban,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-type CommandGroup = 'action' | 'client' | 'project' | 'quote' | 'task' | 'diagnostic' | 'file'
+type CommandGroup = 'action' | 'client' | 'project' | 'quote' | 'task' | 'diagnostic' | 'file' | 'time_entry'
 
 type CommandItem = {
   id: string
@@ -38,6 +39,7 @@ const GROUP_LABELS: Record<CommandGroup, string> = {
   task: 'Tâches',
   diagnostic: 'Diagnostics',
   file: 'Fichiers',
+  time_entry: 'Saisies de temps',
 }
 
 function parentPath(path: string) {
@@ -149,10 +151,11 @@ export default function GlobalSearch() {
     ...results.quotes.map(item => ({
       id: `quote-${item.id}`,
       group: 'quote' as const,
-      label: item.title,
-      secondary: `${item.number} · ${item.client_name}`,
-      badge: item.status,
-      href: `/devis?focusQuote=${item.id}`,
+      label: `${item.number} — ${item.title}`,
+      secondary: item.amount_ttc != null
+        ? `${item.amount_ttc.toLocaleString('fr-FR')} EUR TTC · ${item.status}`
+        : item.status,
+      href: `/devis?id=${item.id}`,
       icon: FileText,
     })),
     ...results.tasks.map(item => ({
@@ -183,6 +186,14 @@ export default function GlobalSearch() {
         ? `/files?path=${encodeURIComponent(item.path)}`
         : `/files?path=${encodeURIComponent(parentPath(item.path))}&file=${encodeURIComponent(item.path)}`,
       icon: Folder,
+    })),
+    ...(results.time_entries ?? []).map(item => ({
+      id: `time-entry-${item.id}`,
+      group: 'time_entry' as const,
+      label: item.description ? (item.description.length > 60 ? `${item.description.slice(0, 60)}…` : item.description) : `Saisie #${item.id}`,
+      secondary: [item.project_name, item.date ? new Date(item.date).toLocaleDateString('fr-FR') : null].filter(Boolean).join(' · '),
+      href: item.project_id ? `/projets/${item.project_id}` : '/',
+      icon: Clock,
     })),
   ] : []
 
@@ -255,7 +266,7 @@ export default function GlobalSearch() {
 
           {!loading && items.length > 0 && (
             <>
-              {(['action', 'client', 'project', 'quote', 'task', 'diagnostic', 'file'] as CommandGroup[]).map(group => {
+              {(['action', 'client', 'project', 'quote', 'task', 'diagnostic', 'file', 'time_entry'] as CommandGroup[]).map(group => {
                 const groupItems = items.filter(item => item.group === group)
                 if (!groupItems.length) return null
                 return (

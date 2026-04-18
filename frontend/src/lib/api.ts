@@ -31,7 +31,7 @@ function buildQuery(params?: Record<string, any>): string {
   return q ? `?${q}` : ''
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestInit, _retryOn503 = true): Promise<T> {
   const method = (options?.method || 'GET').toUpperCase()
   const isGet = method === 'GET'
   const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData
@@ -55,11 +55,47 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     }
   }
 
+  // Timeout de 15 secondes via AbortController
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000)
+
   try {
-    const res = await fetch(`${BASE}${path}`, {
-      ...options,
-      headers,
-    })
+    let res: Response
+    try {
+      res = await fetch(`${BASE}${path}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      })
+    } catch (fetchError) {
+      if (fetchError instanceof DOMException && fetchError.name === 'AbortError') {
+        throw new Error('Délai d\'attente dépassé (15s) — serveur injoignable')
+      }
+      if (fetchError instanceof TypeError) {
+        throw new Error('Backend inaccessible — vérifiez que les services sont démarrés')
+      }
+      throw fetchError
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
+    // Gestion des codes d'erreur HTTP spécifiques
+    if (res.status === 401) {
+      throw new Error('Session expirée')
+    }
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('Retry-After')
+      void retryAfter // présent dans le header mais non utilisé pour le délai ici
+      throw new Error('Trop de requêtes — réessayez dans quelques secondes')
+    }
+    if (res.status === 503) {
+      if (_retryOn503) {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        return request<T>(path, options, false)
+      }
+      throw new Error('Service temporairement indisponible')
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }))
       const detail = err.detail
@@ -75,6 +111,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     }
     return data
   } catch (error) {
+    clearTimeout(timeoutId)
     if (isGet) {
       const cached = cacheGet<T>(path)
       if (cached) {
@@ -476,6 +513,20 @@ export const deleteTimeEntry = (id: number) =>
   isDemoMode()
     ? Promise.resolve({ message: 'Suppression désactivée en mode démo' })
     : request<{ message: string }>(`/time-entries/${id}`, { method: 'DELETE' })
+
+export const exportTimeEntriesCsv = async (params?: { project_id?: number; client_id?: number }) => {
+  const _API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const query = params ? '?' + new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))
+  ).toString() : ''
+  const resp = await fetch(`${_API_URL}/api/time-entries/export${query}`)
+  if (!resp.ok) throw new Error('Export échoué')
+  const blob = await resp.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'saisies_temps.csv'; a.click()
+  URL.revokeObjectURL(url)
+}
 
 // ─── TYPES ───────────────────────────────────────────────────
 
@@ -1302,10 +1353,11 @@ export const deleteWebhook = (id: number) =>
 export interface SearchResults {
   clients: Array<{ id: number; name: string; sector?: string; status: string }>
   projects: Array<{ id: number; code: string; name: string; client_name: string }>
-  quotes: Array<{ id: number; number: string; title: string; client_name: string; status: string }>
+  quotes: Array<{ id: number; number: string; title: string; client_name: string; amount_ttc?: number; status: string }>
   tasks: Array<{ id: number; title: string; status: string; priority: string; client_id?: number; project_id?: number }>
   diagnostics: Array<{ id: number; title: string; type: string; status: string; client_name?: string }>
   files: FileItem[]
+  time_entries?: Array<{ id: number; description?: string; project_name?: string; project_id: number; date?: string }>
 }
 
 export const globalSearch = (q: string) =>

@@ -17,3 +17,4 @@ alembic==1.13.1
 python-dotenv==1.0.1
 apscheduler==3.10.4
 python-dateutil==2.9.0
+slowapi==0.1.9

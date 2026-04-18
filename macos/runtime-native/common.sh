@@ -310,7 +310,8 @@ build_frontend_if_needed() {
   current_hash="$(find "${frontend_dir}/src" "${frontend_dir}/public" \
       "${frontend_dir}/package.json" "${frontend_dir}/next.config.js" \
       "${frontend_dir}/tailwind.config.js" \
-      -type f 2>/dev/null | sort | while IFS= read -r f; do
+      -type f ! -name ".DS_Store" ! -name "*.test.*" ! -name "*.spec.*" \
+      2>/dev/null | sort | while IFS= read -r f; do
         shasum -a 256 "${f}" 2>/dev/null
       done | shasum -a 256 | awk '{print $1}')"
   local stored_hash
@@ -452,6 +453,23 @@ open_frontend() {
   command -v open >/dev/null 2>&1 && open "http://localhost:3001" >/dev/null 2>&1 || true
 }
 
+# ── Notifications CRM ────────────────────────────────────────────
+poll_crm_notifications() {
+  local notifs
+  notifs="$(curl -fsS "http://127.0.0.1:8001/api/notifications?unread_only=true" 2>/dev/null || echo "[]")"
+  while IFS=$'\t' read -r nid ntitle nmsg; do
+    [ -z "${nid}" ] && continue
+    notify "${APP_NAME}" "${ntitle}" "${nmsg}"
+    curl -X PATCH "http://127.0.0.1:8001/api/notifications/${nid}/read" -fsS >/dev/null 2>&1 || true
+  done < <(python3 -c "
+import json, sys
+data = json.loads('''${notifs}''')
+for n in data:
+    if n.get('severity') in ('warning','error') and not n.get('is_read'):
+        print(str(n['id']) + '\t' + n['title'][:60] + '\t' + (n.get('message') or '')[:80])
+" 2>/dev/null || true)
+}
+
 # ── Stack ────────────────────────────────────────────────────────
 start_stack_native() {
   if is_running; then
@@ -482,6 +500,7 @@ start_stack_native() {
   open_frontend
   notify "${APP_NAME}" "Application prête" "http://localhost:3001"
   log "ACCESSIA Pro est prêt"
+  (sleep 5 && poll_crm_notifications) &
 }
 
 stop_stack_native() {

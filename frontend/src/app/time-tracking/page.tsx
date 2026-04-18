@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Clock, Plus, Trash2, BarChart3, Timer, DollarSign, TrendingUp,
+  Clock, Download, Plus, Trash2, BarChart3, Timer, DollarSign, TrendingUp,
 } from 'lucide-react'
 import {
-  getTimeEntries, createTimeEntry, deleteTimeEntry, getTimeEntriesSummary, getProjects,
+  getTimeEntries, createTimeEntry, deleteTimeEntry, exportTimeEntriesCsv, getTimeEntriesSummary, getProjects,
   type TimeEntry, type TimeEntrySummary, type Project,
 } from '@/lib/api'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -100,12 +100,19 @@ export default function TimeTrackingPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4">
         <button onClick={() => setTab('entries')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'entries' ? 'bg-accessia-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
           Entrées de temps
         </button>
         <button onClick={() => setTab('summary')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'summary' ? 'bg-accessia-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
           Rentabilité par projet
+        </button>
+        <button
+          onClick={() => exportTimeEntriesCsv().catch((err: Error) => alert(err.message))}
+          className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+          title="Exporter les saisies en CSV"
+        >
+          <Download size={14} /> CSV
         </button>
       </div>
 

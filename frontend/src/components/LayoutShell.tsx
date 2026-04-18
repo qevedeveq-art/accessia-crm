@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import Sidebar from './Sidebar'
 import GlobalSearch from './GlobalSearch'
+import ErrorBoundary from './ErrorBoundary'
 import { isDemoMode, DEMO_KEY } from '@/lib/api'
 import { FlaskConical, WifiOff } from 'lucide-react'
 
@@ -58,7 +59,9 @@ function LayoutShellInner({ children }: { children: React.ReactNode }) {
             <span>Mode hors-ligne — données depuis le cache local</span>
           </div>
         )}
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
     </div>
   )

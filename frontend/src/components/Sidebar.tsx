@@ -60,13 +60,16 @@ export default function Sidebar() {
       if (e.key === DEMO_KEY) setDemo(e.newValue === '1')
     }
     const loadSummary = () => {
+      if (document.visibilityState === 'hidden') return
       getNotificationSummary().then(summary => setUnreadNotifications(summary.unread)).catch(() => {})
     }
     window.addEventListener('storage', onStorage)
+    document.addEventListener('visibilitychange', loadSummary)
     loadSummary()
     const timer = window.setInterval(loadSummary, 30000)
     return () => {
       window.removeEventListener('storage', onStorage)
+      document.removeEventListener('visibilitychange', loadSummary)
       window.clearInterval(timer)
     }
   }, [])

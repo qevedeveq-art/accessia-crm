@@ -324,7 +324,13 @@ def rename_path(path: str, new_name: str) -> dict:
     source = _ensure_mutable_target(Path(path))
     if not source.exists():
         raise FileNotFoundError("Élément introuvable")
-    safe_name = _safe_name(new_name)
+    if source.is_file():
+        p = Path(new_name)
+        safe_stem = _safe_name(p.stem) or _safe_name(new_name)
+        ext = p.suffix.lower()[:10]
+        safe_name = safe_stem + ext
+    else:
+        safe_name = _safe_name(new_name)
     if not safe_name:
         raise ValueError("Nouveau nom invalide")
     target = _ensure_mutable_target(source.parent / safe_name)
@@ -356,7 +362,10 @@ def save_upload(parent_path: Optional[str], filename: str, content: bytes) -> di
     parent = Path(parent_path) if parent_path else SENSIA_BASE
     if not parent.exists() or not parent.is_dir():
         raise FileNotFoundError("Dossier parent introuvable")
-    safe_name = _safe_name(Path(filename).name)
+    p = Path(filename)
+    safe_stem = _safe_name(p.stem) or "upload"
+    ext = p.suffix.lower()[:10]  # Conserver l'extension (ex: .pdf, .docx)
+    safe_name = safe_stem + ext
     if not safe_name:
         raise ValueError("Nom de fichier invalide")
     target = _ensure_mutable_target(parent / safe_name)
