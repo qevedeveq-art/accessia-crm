@@ -407,13 +407,17 @@ def root_redirect():
 
 
 # ── Middleware CORS ──────────────────────────────────────────
+# SECURITY FIX: origines lues depuis l'env var ALLOWED_ORIGINS
+# Dev  : defaults localhost
+# Prod : docker-compose.override.yml injecte "https://domain.tld"
+_default_origins = (
+    "http://localhost:3001,http://localhost:3000,"
+    "http://127.0.0.1:3001,http://127.0.0.1:3000"
+)
 ALLOWED_ORIGINS = [
-    "http://localhost:3001",
-    "http://localhost:3000",
-    "http://localhost:8001",
-    "http://127.0.0.1:3001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8001",
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
+    if o.strip()
 ]
 
 app.add_middleware(SlowAPIMiddleware)
