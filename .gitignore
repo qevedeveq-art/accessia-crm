@@ -35,3 +35,7 @@ docker-data/
 *.db
 *.db-shm
 *.db-wal
+
+# Build artifacts & runtime
+frontend/tsconfig.tsbuildinfo
+backend/.last_backup
