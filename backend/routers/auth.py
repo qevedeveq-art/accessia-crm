@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi import APIRouter, Depends, HTTPException, Request, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -77,6 +77,28 @@ def login(body: LoginBody):
         raise HTTPException(status_code=401, detail="Mot de passe incorrect")
     return {"access_token": _create_token(), "token_type": "bearer",
             "expires_in": TOKEN_TTL * 3600, "auth_enabled": True}
+
+
+@router.get("/api/auth/sso")
+def sso_login(request: Request):
+    """YunoHost SSO bridge — lit X-Remote-User injecté par SSOwat et émet un JWT.
+    N'est atteignable qu'après authentification SSOwat (header absent → 401).
+    Jamais exposé sans protection nginx (port 8001 lié à 127.0.0.1).
+    """
+    remote_user = request.headers.get("X-Remote-User", "").strip()
+    if not remote_user:
+        raise HTTPException(
+            status_code=401,
+            detail="SSO non disponible — X-Remote-User absent (hors contexte YunoHost ?)"
+        )
+    log.info("SSO login: user=%s", remote_user)
+    return {
+        "access_token": _create_token(),
+        "token_type": "bearer",
+        "expires_in": TOKEN_TTL * 3600,
+        "sso_user": remote_user,
+        "auth_enabled": True,
+    }
 
 
 @router.get("/api/auth/verify")
