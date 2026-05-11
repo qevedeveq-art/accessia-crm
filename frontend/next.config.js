@@ -18,13 +18,16 @@ const nextConfig = {
     minimumCacheTTL: 3600,
   },
 
-  // Proxy /api/* → backend port 8000
-  // (s'applique uniquement en dev local — ignoré en Docker)
+  // Proxy /api/* → backend
+  // INTERNAL_API_URL : URL interne du backend (Docker service name ou localhost)
+  // Défaut dev : http://localhost:8000
+  // Docker YunoHost : http://backend:8000 (réseau interne Docker)
   async rewrites() {
+    const backendUrl = process.env.INTERNAL_API_URL || 'http://localhost:8000'
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
       },
     ]
   },
